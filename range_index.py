@@ -199,7 +199,9 @@ class RangeIndex:
         current_complexity = top_k
         while True:
             # TODO: This is a (neccesary) hacky heuristic, todo find a better one
-            if current_complexity * pow(2, extra_doubles) > 10 * np.sqrt(len(self.data)):
+            if current_complexity * pow(2, extra_doubles) > 10 * np.sqrt(
+                len(self.data)
+            ):
                 return self.prefilter_query(query, top_k, filter_range)
 
             result = self.indices["full"].search(
