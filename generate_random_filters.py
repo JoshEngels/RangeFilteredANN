@@ -13,7 +13,7 @@ args = parser.parse_args()
 
 data = parse_ann_benchmarks_hdf5(args.data_filename)[0]
 
-filters = np.random.uniform(len(data))
+filters = np.random.uniform(size=len(data))
 
 original_path = Path(args.data_filename)
 
