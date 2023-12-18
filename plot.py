@@ -44,8 +44,10 @@ for (filter_width, method), group in grouped_data:
     sorted_group = group.sort_values(by="recall", ascending=False)
 
     x, y = pareto_front(
-        np.array(sorted_group["recall"]), np.array(sorted_group["average_time"])
+        np.array(sorted_group["recall"]), 1.0 / np.array(sorted_group["average_time"])
     )
+
+    # x, y = np.array(sorted_group["recall"]), 1.0 / np.array(sorted_group["average_time"])
 
     if len(x) == 1:
         ax.plot(x, y, label=method, markersize=20, marker="x")

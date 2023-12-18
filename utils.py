@@ -12,15 +12,15 @@ def parse_ann_benchmarks_hdf5(data_path):
 
 
 def pareto_front(x, y):
-    sorted_indices = sorted(range(len(x)), key=lambda k: x[k])
-    x_sorted = [x[i] for i in sorted_indices]
-    y_sorted = [y[i] for i in sorted_indices]
+    sorted_indices = sorted(range(len(y)), key=lambda k: -y[k])
+    x_sorted = x[sorted_indices]
+    y_sorted = y[sorted_indices]
 
     pareto_front_x = [x_sorted[0]]
     pareto_front_y = [y_sorted[0]]
 
     for i in range(1, len(x_sorted)):
-        if y_sorted[i] > pareto_front_y[-1]:
+        if x_sorted[i] > pareto_front_x[-1]:
             pareto_front_x.append(x_sorted[i])
             pareto_front_y.append(y_sorted[i])
 
