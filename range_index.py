@@ -130,12 +130,15 @@ class RangeIndex:
                 indices_to_search.append((current_pow, last_range[1]))
                 last_range[1] += current_bucket_size
 
+        if len(indices_to_search) == 0:
+            return self.prefilter_query(query, top_k, filter_range)
+
         # print("A", time.time() - start)
 
         identifiers = []
         distances = []
         for index_pattern in indices_to_search:
-            indexing_start = time.time()
+            # indexing_start = time.time()
             index = self.indices[index_pattern]
             search_result = index.search(
                 query=query, complexity=query_complexity, k_neighbors=top_k
@@ -195,6 +198,10 @@ class RangeIndex:
 
         current_complexity = top_k
         while True:
+            # TODO: This is a (neccesary) hacky heuristic, todo find a better one
+            if current_complexity * pow(2, extra_doubles) > 10 * np.sqrt(len(self.data)):
+                return self.prefilter_query(query, top_k, filter_range)
+
             result = self.indices["full"].search(
                 query, complexity=current_complexity, k_neighbors=current_complexity
             )
