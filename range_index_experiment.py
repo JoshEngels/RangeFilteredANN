@@ -1,4 +1,4 @@
-from prototype import create_range_index
+from range_index import create_range_index
 from utils import parse_ann_benchmarks_hdf5
 import numpy as np
 import time
@@ -16,9 +16,17 @@ queries = queries / np.linalg.norm(queries, axis=-1)[:, np.newaxis]
 
 
 filter_width = 0.2
+
 our_times = []
-brute_force_times = []
 our_recalls = []
+
+# prefilter recall is always 1
+prefilter_times = []
+
+# TODO: Add additional doublign counter after finding k filtered values to get better recall?
+postfilter_times = []
+postfilter_recalls = []
+
 top_k = 10
 query_complexity = 100
 
@@ -27,18 +35,27 @@ for q in tqdm(queries[:1000]):
     filter_range = (random_filter_start, random_filter_start + filter_width)
 
     start = time.time()
-    result = index.query(
+    our_result = index.query(
         q, top_k=top_k, query_complexity=query_complexity, filter_range=filter_range
     )
     our_times.append(time.time() - start)
 
     start = time.time()
-    gt = index.naive_query(q, top_k=top_k, filter_range=filter_range)
-    brute_force_times.append(time.time() - start)
+    gt = index.prefilter_query(q, top_k=top_k, filter_range=filter_range)
+    prefilter_times.append(time.time() - start)
 
-    recall = len([x for x in gt[0] if x in result[0]])
-    our_recalls.append(recall / top_k)
+    start = time.time()
+    postfilter_result = index.postfilter_query(
+        q, top_k=top_k, filter_range=filter_range
+    )
+    postfilter_times.append(time.time() - start)
 
-print(np.average(our_recalls))
-print(np.average(our_times))
-print(np.average(brute_force_times))
+    our_recall = len([x for x in gt[0] if x in our_result[0]])
+    our_recalls.append(our_recall / top_k)
+
+    postfilter_recall = len([x for x in gt[0] if x in postfilter_result[0]])
+    postfilter_recalls.append(postfilter_recall / top_k)
+
+print(np.average(our_recalls), np.average(our_times))
+print(1, np.average(prefilter_times))
+print(np.average(postfilter_recalls), np.average(postfilter_times))

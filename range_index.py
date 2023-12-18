@@ -57,7 +57,14 @@ class RangeIndex:
                     degree=32,
                     distance_metric=distance_metric,
                 )
-        pass
+        self.indices["full"] = create_diskann_index(
+            name=f"{dataset_name}_full",
+            data=self.data,
+            alpha=1.1,
+            build_complexity=64,
+            degree=32,
+            distance_metric=distance_metric,
+        )
 
     def first_greater_than(self, filter_value):
         start = 0
@@ -123,15 +130,21 @@ class RangeIndex:
                 indices_to_search.append((current_pow, last_range[1]))
                 last_range[1] += current_bucket_size
 
+        print("A", time.time() - start)
+
         identifiers = []
         distances = []
         for index_pattern in indices_to_search:
+            indexing_start = time.time()
             index = self.indices[index_pattern]
             search_result = index.search(
                 query=query, complexity=query_complexity, k_neighbors=top_k
             )
             identifiers += [i + index_pattern[1] for i in search_result.identifiers]
             distances += list(search_result.distances)
+
+            print("B", index_pattern, time.time() - indexing_start)
+        print("B_tot", time.time() - start)
 
         if left_space > 0:
             identifiers += list(range(inclusive_start, last_range[0]))
@@ -143,6 +156,8 @@ class RangeIndex:
         else:
             raise ValueError("Currently unsupported distance metric in query")
 
+        print("C", time.time() - start)
+
         identifiers = np.array(identifiers)
         distances = np.array(distances)
 
@@ -152,7 +167,7 @@ class RangeIndex:
         top_indices = top_indices[np.argsort(distances[top_indices])[::-1]]
         return identifiers[top_indices], distances[top_indices]
 
-    def naive_query(self, query, top_k, filter_range):
+    def prefilter_query(self, query, top_k, filter_range):
         if self.distance_metric == "mips":
             query /= np.sum(query**2)
 
@@ -173,6 +188,26 @@ class RangeIndex:
         top_indices = np.argpartition(distances, -top_k)[-top_k:]
         top_indices = top_indices[np.argsort(distances[top_indices])[::-1]]
         return identifiers[top_indices], distances[top_indices]
+
+    def postfilter_query(self, query, top_k, filter_range):
+        if self.distance_metric == "mips":
+            query /= np.sum(query**2)
+
+        current_complexity = top_k
+        while True:
+            identifers = self.indices["full"].search(
+                query, complexity=current_complexity, k_neighbors=current_complexity
+            )[0]
+            filtered = []
+            for i in identifers:
+                if (
+                    self.filter_values[i] >= filter_range[0]
+                    and self.filter_values[i] < filter_range[1]
+                ):
+                    filtered.append(i)
+            if len(filtered) >= top_k:
+                return filtered[:top_k]
+            current_complexity *= 2
 
 
 def create_range_index(data_filename, filters_filename):
