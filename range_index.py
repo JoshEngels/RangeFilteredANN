@@ -130,7 +130,7 @@ class RangeIndex:
                 indices_to_search.append((current_pow, last_range[1]))
                 last_range[1] += current_bucket_size
 
-        print("A", time.time() - start)
+        # print("A", time.time() - start)
 
         identifiers = []
         distances = []
@@ -143,8 +143,8 @@ class RangeIndex:
             identifiers += [i + index_pattern[1] for i in search_result.identifiers]
             distances += list(search_result.distances)
 
-            print("B", index_pattern, time.time() - indexing_start)
-        print("B_tot", time.time() - start)
+        #     print("B", index_pattern, time.time() - indexing_start)
+        # print("B_tot", time.time() - start)
 
         if left_space > 0:
             identifiers += list(range(inclusive_start, last_range[0]))
@@ -156,7 +156,7 @@ class RangeIndex:
         else:
             raise ValueError("Currently unsupported distance metric in query")
 
-        print("C", time.time() - start)
+        # print("C", time.time() - start)
 
         identifiers = np.array(identifiers)
         distances = np.array(distances)
@@ -189,24 +189,28 @@ class RangeIndex:
         top_indices = top_indices[np.argsort(distances[top_indices])[::-1]]
         return identifiers[top_indices], distances[top_indices]
 
-    def postfilter_query(self, query, top_k, filter_range):
+    def postfilter_query(self, query, top_k, filter_range, extra_doubles):
         if self.distance_metric == "mips":
             query /= np.sum(query**2)
 
         current_complexity = top_k
         while True:
-            identifers = self.indices["full"].search(
+            result = self.indices["full"].search(
                 query, complexity=current_complexity, k_neighbors=current_complexity
-            )[0]
-            filtered = []
-            for i in identifers:
+            )
+            filtered_identifiers = []
+            filtered_distances = []
+            for identifier, distance in zip(result.identifiers, result.distances):
                 if (
-                    self.filter_values[i] >= filter_range[0]
-                    and self.filter_values[i] < filter_range[1]
+                    self.filter_values[identifier] >= filter_range[0]
+                    and self.filter_values[identifier] < filter_range[1]
                 ):
-                    filtered.append(i)
-            if len(filtered) >= top_k:
-                return filtered[:top_k]
+                    filtered_identifiers.append(identifier)
+                    filtered_distances.append(distance)
+            if len(filtered_identifiers) >= top_k:
+                if extra_doubles == 0:
+                    return filtered_identifiers[:top_k], filtered_distances[:top_k]
+                extra_doubles -= 1
             current_complexity *= 2
 
 

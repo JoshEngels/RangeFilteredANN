@@ -23,7 +23,6 @@ our_recalls = []
 # prefilter recall is always 1
 prefilter_times = []
 
-# TODO: Add additional doublign counter after finding k filtered values to get better recall?
 postfilter_times = []
 postfilter_recalls = []
 
@@ -46,15 +45,17 @@ for q in tqdm(queries[:1000]):
 
     start = time.time()
     postfilter_result = index.postfilter_query(
-        q, top_k=top_k, filter_range=filter_range
+        q, top_k=top_k, filter_range=filter_range, extra_doubles=2
     )
     postfilter_times.append(time.time() - start)
 
-    our_recall = len([x for x in gt[0] if x in our_result[0]])
-    our_recalls.append(our_recall / top_k)
+    our_recall = len([x for x in gt[0] if x in our_result[0]]) / len(gt[0])
+    our_recalls.append(our_recall)
 
-    postfilter_recall = len([x for x in gt[0] if x in postfilter_result[0]])
-    postfilter_recalls.append(postfilter_recall / top_k)
+    postfilter_recall = len([x for x in gt[0] if x in postfilter_result[0]]) / len(
+        gt[0]
+    )
+    postfilter_recalls.append(postfilter_recall)
 
 print(np.average(our_recalls), np.average(our_times))
 print(1, np.average(prefilter_times))
