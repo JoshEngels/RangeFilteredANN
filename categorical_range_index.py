@@ -5,10 +5,10 @@ from pathlib import Path
 from utils import parse_ann_benchmarks_hdf5, create_diskann_index
 import time
 
-index_directory = "indices"
+# TODO: Consolidate with RangeIndex
+# TODO: Modify diskann to search with multiple labels
 
-
-class RangeIndex:
+class CategoricalRangeIndex:
     def __init__(self, data, dataset_name, filter_values, cutoff_pow, distance_metric):
         if distance_metric == "mips":
             data = data / np.linalg.norm(data, axis=-1)[:, np.newaxis]
@@ -22,18 +22,27 @@ class RangeIndex:
         self.distance_metric = distance_metric
 
         # For now starting at size cutoff_pow and going up (instead of halfing)
-        self.indices = {}
+        filter_labels = [[] for _ in range(len(data))]
         for current_pow in range(self.low_pow, self.max_pow + 1):
             current_bucket_size = 2**current_pow
             for start in range(0, len(data), current_bucket_size):
-                self.indices[(current_pow, start)] = create_diskann_index(
-                    name=f"{dataset_name}_{current_pow}_{start}",
-                    data=self.data[start : start + current_bucket_size],
-                    alpha=1.1,
-                    build_complexity=64,
-                    degree=32,
-                    distance_metric=distance_metric,
-                )
+                current_range_str = f"{current_pow}A{start}"
+                for point_id in range(start, min(start + current_bucket_size, len(data))):
+                    filter_labels[point_id].append(current_range_str)
+
+        self.indices = {}
+
+        self.indices["main"] = create_diskann_index(
+            name=f"labeled_{dataset_name}",
+            data=self.data,
+            alpha=1.1,
+            build_complexity=128,
+            filter_complexity=128,
+            degree=64,
+            distance_metric=distance_metric,
+            filter_labels=filter_labels
+        )
+
         self.indices["full"] = create_diskann_index(
             name=f"{dataset_name}_full",
             data=self.data,
@@ -67,7 +76,6 @@ class RangeIndex:
 
     # Filter range is exclusive top and bottom
     def query(self, query, top_k, query_complexity, filter_range):
-        start = time.time()
 
         if self.distance_metric == "mips":
             query /= np.sum(query**2)
@@ -110,21 +118,14 @@ class RangeIndex:
         if len(indices_to_search) == 0:
             return self.prefilter_query(query, top_k, filter_range)
 
-        # print("A", time.time() - start)
-
         identifiers = []
         distances = []
-        for index_pattern in indices_to_search:
-            # indexing_start = time.time()
-            index = self.indices[index_pattern]
-            search_result = index.search(
-                query=query, complexity=query_complexity, k_neighbors=top_k
+        for current_pow, start in indices_to_search:
+            search_result = self.indices["main"].search(
+                query=query, complexity=query_complexity, k_neighbors=top_k, filter_label=f"{current_pow}A{start}"
             )
-            identifiers += [i + index_pattern[1] for i in search_result.identifiers]
+            identifiers += [i + start for i in search_result.identifiers]
             distances += list(search_result.distances)
-
-        #     print("B", index_pattern, time.time() - indexing_start)
-        # print("B_tot", time.time() - start)
 
         if left_space > 0:
             identifiers += list(range(inclusive_start, last_range[0]))
@@ -136,8 +137,6 @@ class RangeIndex:
         else:
             raise ValueError("Currently unsupported distance metric in query")
 
-        # print("C", time.time() - start)
-
         identifiers = np.array(identifiers)
         distances = np.array(distances)
 
@@ -146,6 +145,7 @@ class RangeIndex:
         top_indices = np.argpartition(distances, -top_k)[-top_k:]
         top_indices = top_indices[np.argsort(distances[top_indices])[::-1]]
         return identifiers[top_indices], distances[top_indices]
+
 
     def prefilter_query(self, query, top_k, filter_range):
         if self.distance_metric == "mips":
@@ -199,7 +199,6 @@ class RangeIndex:
                 extra_doubles -= 1
             current_complexity *= 2
 
-
 def create_range_index(data_filename, filters_filename):
     dataset_name, _, distance_metric = Path(data_filename).stem.split("-")
     distance_metric = {"angular": "mips", "euclidean": "l2"}[distance_metric]
@@ -208,7 +207,7 @@ def create_range_index(data_filename, filters_filename):
 
     filter_values = np.load(filters_filename)
 
-    range_index = RangeIndex(
+    range_index = CategoricalRangeIndex(
         data=data,
         dataset_name=dataset_name,
         filter_values=filter_values,

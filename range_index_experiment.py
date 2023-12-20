@@ -1,5 +1,6 @@
 from collections import defaultdict
-from range_index import create_range_index
+# from range_index import create_range_index
+from categorical_range_index import create_range_index
 from utils import parse_ann_benchmarks_hdf5
 import numpy as np
 import time
