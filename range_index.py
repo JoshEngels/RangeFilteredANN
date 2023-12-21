@@ -6,25 +6,29 @@ import argparse
 from pathlib import Path
 from utils import parse_ann_benchmarks_hdf5
 import time
+from spatial_index import DiskANNIndex, DiskANNIndexFactory
 
-index_directory = "indices"
+INDEX_DIRECTORY = "indices"
 
+ALPHA = 1.1
+BUILD_COMPLEXITY = 64
+DEGREE = 32
 
 def create_diskann_index(name, data, alpha, build_complexity, degree, distance_metric):
-    if not os.path.exists(index_directory + "/" + name):
+    if not os.path.exists(INDEX_DIRECTORY + "/" + name):
         diskannpy.build_memory_index(
             data,
             alpha=alpha,
             complexity=build_complexity,
             graph_degree=degree,
             distance_metric=distance_metric,
-            index_directory=index_directory,
+            index_directory=INDEX_DIRECTORY,
             index_prefix=name,
             num_threads=0,
         )
 
     return diskannpy.StaticMemoryIndex(
-        index_directory=index_directory,
+        index_directory=INDEX_DIRECTORY,
         num_threads=0,
         initial_search_complexity=build_complexity,
         index_prefix=name,
@@ -35,6 +39,8 @@ class RangeIndex:
     def __init__(self, data, dataset_name, filter_values, cutoff_pow, distance_metric):
         if distance_metric == "mips":
             data = data / np.linalg.norm(data, axis=-1)[:, np.newaxis]
+
+        index_factory = DiskANNIndexFactory(INDEX_DIRECTORY, ALPHA, BUILD_COMPLEXITY, DEGREE, distance_metric)
 
         zipped_data = list(zip(filter_values, data))
         zipped_data.sort()
@@ -49,22 +55,32 @@ class RangeIndex:
         for current_pow in range(self.low_pow, self.max_pow + 1):
             current_bucket_size = 2**current_pow
             for start in range(0, len(data), current_bucket_size):
-                self.indices[(current_pow, start)] = create_diskann_index(
-                    name=f"{dataset_name}_{current_pow}_{start}",
-                    data=self.data[start : start + current_bucket_size],
-                    alpha=1.1,
-                    build_complexity=64,
-                    degree=32,
-                    distance_metric=distance_metric,
-                )
-        self.indices["full"] = create_diskann_index(
-            name=f"{dataset_name}_full",
-            data=self.data,
-            alpha=1.1,
-            build_complexity=64,
-            degree=32,
-            distance_metric=distance_metric,
-        )
+                self.indices[(current_pow, start)] = \
+                    index_factory.create_index(
+                        name=f"{dataset_name}_{current_pow}_{start}"
+                    ).build_or_load(data[start : start + current_bucket_size])
+                
+                # create_diskann_index(
+                #     name=f"{dataset_name}_{current_pow}_{start}",
+                #     data=self.data[start : start + current_bucket_size],
+                #     alpha=1.1,
+                #     build_complexity=64,
+                #     degree=32,
+                #     distance_metric=distance_metric,
+                # )
+        self.indices["full"] = \
+            index_factory.create_index(
+                name=f"{dataset_name}_full"
+            ).build_or_load(data)
+        
+        #     create_diskann_index(
+        #     name=f"{dataset_name}_full",
+        #     data=self.data,
+        #     alpha=1.1,
+        #     build_complexity=64,
+        #     degree=32,
+        #     distance_metric=distance_metric,
+        # )
 
     def first_greater_than(self, filter_value):
         start = 0
@@ -143,7 +159,7 @@ class RangeIndex:
             # indexing_start = time.time()
             index = self.indices[index_pattern]
             search_result = index.search(
-                query=query, complexity=query_complexity, k_neighbors=top_k
+                query=query, complexity=query_complexity, k=top_k
             )
             identifiers += [i + index_pattern[1] for i in search_result.identifiers]
             distances += list(search_result.distances)

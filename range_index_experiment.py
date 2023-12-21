@@ -5,9 +5,11 @@ import numpy as np
 import time
 from tqdm import tqdm
 
+# data_dir = "/data/scratch/jae/ann_benchmarks_datasets/"
+data_dir = "/ssd1/anndata/ann-benchmarks/"
 
-filter_path = "/data/scratch/jae/ann_benchmarks_datasets/sift-128-euclidean_filters.npy"
-data_path = "/data/scratch/jae/ann_benchmarks_datasets/sift-128-euclidean.hdf5"
+filter_path = data_dir + "sift-128-euclidean_filters.npy"
+data_path = data_dir + "sift-128-euclidean.hdf5"
 
 index = create_range_index(data_path, filter_path)
 
