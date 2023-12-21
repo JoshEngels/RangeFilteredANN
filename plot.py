@@ -58,7 +58,7 @@ for (filter_width, method), group in grouped_data:
 fig.supxlabel("Recall")
 fig.supylabel("Average Latency")
 handles, labels = axes[0].get_legend_handles_labels()
-fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.98), ncol=3)
+fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.98), ncol=5)
 
 
 plt.tight_layout()

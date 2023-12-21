@@ -119,6 +119,8 @@ class RangeIndex:
                     if bucket_start >= inclusive_start and bucket_end <= exclusive_end:
                         indices_to_search.append((current_pow, bucket_start))
                         last_range = [bucket_start, bucket_start + current_bucket_size]
+
+            if last_range == None:
                 continue
 
             left_space = last_range[0] - inclusive_start
@@ -156,6 +158,15 @@ class RangeIndex:
         if self.distance_metric == "mips":
             distances += list(self.data[inclusive_start : last_range[0]] @ query)
             distances += list(self.data[last_range[1] : exclusive_end] @ query)
+        elif self.distance_metric == "l2":
+            distances += list(
+                np.sum(
+                    (self.data[inclusive_start : last_range[0]] - query) ** 2, axis=-1
+                )
+            )
+            distances += list(
+                np.sum((self.data[last_range[1] : exclusive_end] - query) ** 2, axis=-1)
+            )
         else:
             raise ValueError("Currently unsupported distance metric in query")
 
@@ -166,8 +177,25 @@ class RangeIndex:
 
         assert len(identifiers) == len(distances)
 
-        top_indices = np.argpartition(distances, -top_k)[-top_k:]
-        top_indices = top_indices[np.argsort(distances[top_indices])[::-1]]
+        if self.distance_metric == "mips":
+            if len(distances) > top_k:
+                top_indices = np.argpartition(distances, -top_k)[-top_k:]
+            else:
+                top_indices = np.arange(len(distances))
+
+            top_indices = top_indices[np.argsort(distances[top_indices])[::-1]]
+
+        elif self.distance_metric == "l2":
+            if len(distances) > top_k:
+                top_indices = np.argpartition(distances, top_k)[:top_k]
+            else:
+                top_indices = np.arange(len(distances))
+
+            top_indices = top_indices[np.argsort(distances[top_indices])]
+
+        else:
+            raise ValueError("Unknown distance metric")
+
         return identifiers[top_indices], distances[top_indices]
 
     def prefilter_query(self, query, top_k, filter_range):
@@ -177,49 +205,102 @@ class RangeIndex:
         inclusive_start = self.first_greater_than(filter_range[0])
         exclusive_end = self.first_greater_than_or_equal_to(filter_range[1])
 
+        if exclusive_end - inclusive_start == 0:
+            return [], []
+
         identifiers = list(range(inclusive_start, exclusive_end))
         if self.distance_metric == "mips":
             distances = list(self.data[inclusive_start:exclusive_end] @ query)
+        elif self.distance_metric == "l2":
+            squared_distances = np.sum(
+                (self.data[inclusive_start:exclusive_end] - query) ** 2, axis=-1
+            )
+            distances = list(squared_distances)
         else:
-            raise ValueError("Currently unsupported distance metric in query")
+            raise ValueError("Unknown distance metric")
 
         identifiers = np.array(identifiers)
         distances = np.array(distances)
 
         assert len(identifiers) == len(distances)
 
-        top_indices = np.argpartition(distances, -top_k)[-top_k:]
-        top_indices = top_indices[np.argsort(distances[top_indices])[::-1]]
+        if self.distance_metric == "mips":
+            if len(distances) > top_k:
+                top_indices = np.argpartition(distances, -top_k)[-top_k:]
+            else:
+                top_indices = np.arange(len(distances))
+
+            top_indices = top_indices[np.argsort(distances[top_indices])[::-1]]
+
+        elif self.distance_metric == "l2":
+            if len(distances) > top_k:
+                top_indices = np.argpartition(distances, top_k)[:top_k]
+            else:
+                top_indices = np.arange(len(distances))
+
+            top_indices = top_indices[np.argsort(distances[top_indices])]
+
+        else:
+            raise ValueError("Unknown distance metric")
+
         return identifiers[top_indices], distances[top_indices]
 
-    def postfilter_query(self, query, top_k, filter_range, extra_doubles):
+    def postfilter_query(
+        self,
+        query,
+        top_k,
+        filter_range,
+        extra_doubles,
+        index_key="full",
+        optimize_index_choice=False,
+    ):
         if self.distance_metric == "mips":
             query /= np.sum(query**2)
 
-        current_complexity = top_k
+        inclusive_start = self.first_greater_than(filter_range[0])
+        exclusive_end = self.first_greater_than_or_equal_to(filter_range[1])
+
+        if optimize_index_choice:
+            for power in range(self.low_pow, self.max_pow + 1):
+                bucket_size = 2**power
+                start_bucket = inclusive_start // bucket_size
+                end_bucket = (exclusive_end - 1) // bucket_size
+                if start_bucket == end_bucket:
+                    index_key = (power, start_bucket * bucket_size)
+                    break
+
+        current_complexity = 2 * top_k
         while True:
             # TODO: This is a (neccesary) hacky heuristic, todo find a better one
             if current_complexity * pow(2, extra_doubles) > 10 * np.sqrt(
-                len(self.data)
+                len(self.data) if index_key == "full" else 2 ** index_key[0]
             ):
+                # print(optimize_index_choice, current_complexity * pow(2, extra_doubles), np.sqrt(len(self.data) if index_key == "full" else 2**index_key[0]))
                 return self.prefilter_query(query, top_k, filter_range)
 
-            result = self.indices["full"].search(
-                query, complexity=current_complexity, k_neighbors=current_complexity
+            result = self.indices[index_key].search(
+                query,
+                complexity=current_complexity,
+                k_neighbors=current_complexity // 2,
             )
+            index_offset = 0 if index_key == "full" else index_key[1]
             filtered_identifiers = []
             filtered_distances = []
             for identifier, distance in zip(result.identifiers, result.distances):
+                identifier += index_offset
                 if (
                     self.filter_values[identifier] >= filter_range[0]
                     and self.filter_values[identifier] < filter_range[1]
                 ):
                     filtered_identifiers.append(identifier)
                     filtered_distances.append(distance)
+
             if len(filtered_identifiers) >= top_k:
                 if extra_doubles == 0:
+                    # print(optimize_index_choice, current_complexity)
                     return filtered_identifiers[:top_k], filtered_distances[:top_k]
                 extra_doubles -= 1
+
             current_complexity *= 2
 
 

@@ -6,14 +6,15 @@ import time
 from tqdm import tqdm
 
 
-filter_path = "/data/scratch/jae/ann_benchmarks_datasets/glove-100-angular_filters.npy"
-data_path = "/data/scratch/jae/ann_benchmarks_datasets/glove-100-angular.hdf5"
+filter_path = "/data/scratch/jae/ann_benchmarks_datasets/sift-128-euclidean_filters.npy"
+data_path = "/data/scratch/jae/ann_benchmarks_datasets/sift-128-euclidean.hdf5"
 
 index = create_range_index(data_path, filter_path)
 
 queries = parse_ann_benchmarks_hdf5(data_path)[1]
 
-queries = queries / np.linalg.norm(queries, axis=-1)[:, np.newaxis]
+if "angular" in data_path:
+    queries = queries / np.linalg.norm(queries, axis=-1)[:, np.newaxis]
 
 
 # TODO: Should also vary index quality
@@ -52,17 +53,25 @@ for filter_width in [0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75]:
                 )
             )
 
-        for extra_doubles in range(6):
-            start = time.time()
-            postfilter_result = index.postfilter_query(
-                q, top_k=top_k, filter_range=filter_range, extra_doubles=extra_doubles
-            )
-            run_results[f"postfiltering_{extra_doubles}"].append(
-                (
-                    len([x for x in gt[0] if x in postfilter_result[0]]) / len(gt[0]),
-                    time.time() - start,
+        for optimize_index_choice in [True, False]:
+            for extra_doubles in range(6):
+                start = time.time()
+                postfilter_result = index.postfilter_query(
+                    q,
+                    top_k=top_k,
+                    filter_range=filter_range,
+                    extra_doubles=extra_doubles,
+                    optimize_index_choice=optimize_index_choice,
                 )
-            )
+                run_results[
+                    f"postfiltering{'-optimized' if optimize_index_choice else ''}_{extra_doubles}"
+                ].append(
+                    (
+                        len([x for x in gt[0] if x in postfilter_result[0]])
+                        / len(gt[0]),
+                        time.time() - start,
+                    )
+                )
 
     with open(output_file, "a") as f:
         for name, zipped_recalls_times in run_results.items():
