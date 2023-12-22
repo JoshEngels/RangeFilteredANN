@@ -89,7 +89,7 @@ class RangeIndex:
         return end
 
     # Filter range is exclusive top and bottom
-    def query(self, query, top_k, query_complexity, filter_range):
+    def query_fenwick(self, query, top_k, query_complexity, filter_range):
         start = time.time()
 
         if self.distance_metric == "mips":
@@ -171,6 +171,112 @@ class RangeIndex:
             raise ValueError("Currently unsupported distance metric in query")
 
         # print("C", time.time() - start)
+
+        identifiers = np.array(identifiers)
+        distances = np.array(distances)
+
+        assert len(identifiers) == len(distances)
+
+        if self.distance_metric == "mips":
+            if len(distances) > top_k:
+                top_indices = np.argpartition(distances, -top_k)[-top_k:]
+            else:
+                top_indices = np.arange(len(distances))
+
+            top_indices = top_indices[np.argsort(distances[top_indices])[::-1]]
+
+        elif self.distance_metric == "l2":
+            if len(distances) > top_k:
+                top_indices = np.argpartition(distances, top_k)[:top_k]
+            else:
+                top_indices = np.arange(len(distances))
+
+            top_indices = top_indices[np.argsort(distances[top_indices])]
+
+        else:
+            raise ValueError("Unknown distance metric")
+
+        return identifiers[top_indices], distances[top_indices]
+
+    def query_three_split(
+        self, query, top_k, query_complexity, filter_range, extra_side_doubles
+    ):
+        if self.distance_metric == "mips":
+            query /= np.sum(query**2)
+
+        inclusive_start = self.first_greater_than(filter_range[0])
+        exclusive_end = self.first_greater_than_or_equal_to(filter_range[1])
+
+        middle_range = None
+        indices_to_search = []
+        for current_pow in range(self.max_pow, self.low_pow - 1, -1):
+            current_bucket_size = 2**current_pow
+
+            if middle_range == None:
+                min_possible_bucket_index_inclusive = (
+                    inclusive_start
+                ) // current_bucket_size
+                max_possible_bucket_index_exclusive = (
+                    exclusive_end
+                ) // current_bucket_size
+                for possible_bucket_index in range(
+                    min_possible_bucket_index_inclusive,
+                    max_possible_bucket_index_exclusive,
+                ):
+                    bucket_start = possible_bucket_index * current_bucket_size
+                    bucket_end = bucket_start + current_bucket_size
+                    if bucket_start >= inclusive_start and bucket_end <= exclusive_end:
+                        indices_to_search.append((current_pow, bucket_start))
+                        middle_range = [
+                            bucket_start,
+                            bucket_start + current_bucket_size,
+                        ]
+                        break
+
+        if middle_range == None:
+            return self.prefilter_query(query, top_k, filter_range)
+
+        identifiers = []
+        distances = []
+        for index_pattern in indices_to_search:
+            index = self.indices[index_pattern]
+            search_result = index.search(
+                query=query, complexity=query_complexity, k_neighbors=top_k
+            )
+            identifiers += [i + index_pattern[1] for i in search_result.identifiers]
+            distances += list(search_result.distances)
+
+        left_space = middle_range[0] - inclusive_start
+        right_space = exclusive_end - middle_range[1]
+
+        if left_space > 0:
+            left_filter_range = (
+                filter_range[0],
+                self.filter_values[middle_range[0] - 1],
+            )
+            search_result = self.postfilter_query(
+                query,
+                top_k,
+                left_filter_range,
+                extra_doubles=extra_side_doubles,
+                optimize_index_choice=True,
+            )
+            identifiers += list(search_result[0])
+            distances += list(search_result[1])
+        if right_space > 0:
+            right_filter_range = (
+                self.filter_values[middle_range[1]],
+                filter_range[1],
+            )
+            search_result = self.postfilter_query(
+                query,
+                top_k,
+                right_filter_range,
+                extra_doubles=extra_side_doubles,
+                optimize_index_choice=True,
+            )
+            identifiers += list(search_result[0])
+            distances += list(search_result[1])
 
         identifiers = np.array(identifiers)
         distances = np.array(distances)
