@@ -5,15 +5,17 @@ import numpy as np
 import time
 from tqdm import tqdm
 
+
+data_dir = "/data/scratch/jae/ann_benchmarks_datasets/"
+# data_dir = "/ssd1/anndata/ann-benchmarks/"
+
 # TODO: Should also vary index quality
 # TODO: Should also vary cutoff level
 # TODO: Try on larger datasets
 
 for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
-    filter_path = (
-        f"/data/scratch/jae/ann_benchmarks_datasets/{dataset_name}_filters.npy"
-    )
-    data_path = f"/data/scratch/jae/ann_benchmarks_datasets/{dataset_name}.hdf5"
+    filter_path = f"{data_dir}/{dataset_name}_filters.npy"
+    data_path = f"{data_dir}/{dataset_name}.hdf5"
 
     index = create_range_index(data_path, filter_path)
 

@@ -64,7 +64,7 @@ def plot(dataset_name):
     fig.suptitle(f"Pareto Fronts by Filter Width on {dataset_name}")
 
     plt.tight_layout()
-    plt.savefig(f"{dataset_name}_experiment.pdf", bbox_inches="tight")
+    plt.savefig(f"{dataset_name}_experiment.png", bbox_inches="tight")
 
 
 plot("glove-100-angular")
