@@ -350,6 +350,7 @@ class RangeIndex:
         extra_doubles,
         index_key="full",
         optimize_index_choice=False,
+        starting_complexity=None
     ):
         if self.distance_metric == "mips":
             query /= np.sum(query**2)
@@ -366,7 +367,13 @@ class RangeIndex:
                     index_key = (power, start_bucket * bucket_size)
                     break
 
-        current_complexity = 2 * top_k
+        # TODO: Can even do a prediction for a complexity based on the percent of thing in the filter range
+        # that meet the constraint, and then can pass in a multiplier instead of just a single value
+        if starting_complexity is None:
+            current_complexity = 2 * top_k
+        else:
+            current_complexity = max(starting_complexity, top_k)
+
         while True:
             # TODO: This is a (neccesary) hacky heuristic, todo find a better one
             if current_complexity * pow(2, extra_doubles) > 10 * np.sqrt(
@@ -378,7 +385,7 @@ class RangeIndex:
             result = self.indices[index_key].search(
                 query,
                 complexity=current_complexity,
-                k=current_complexity // 2,
+                k=current_complexity,
             )
             index_offset = 0 if index_key == "full" else index_key[1]
             filtered_identifiers = []
@@ -396,7 +403,8 @@ class RangeIndex:
                 if extra_doubles == 0:
                     # print(optimize_index_choice, current_complexity)
                     return filtered_identifiers[:top_k], filtered_distances[:top_k]
-                extra_doubles -= 1
+                current_complexity *= pow(2, extra_doubles - 1)
+                extra_doubles = 0
 
             current_complexity *= 2
 

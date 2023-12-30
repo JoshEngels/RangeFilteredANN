@@ -57,7 +57,7 @@ def plot(dataset_name):
         ax.set_title(f"Filter Width: {filter_width}")
 
     fig.supxlabel("Recall")
-    fig.supylabel("Average Latency")
+    fig.supylabel("Queries Per Second")
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.98), ncol=5)
 

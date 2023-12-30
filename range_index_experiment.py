@@ -75,24 +75,26 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
                     )
 
             for optimize_index_choice in [True, False]:
-                for extra_doubles in range(6):
-                    start = time.time()
-                    postfilter_result = index.postfilter_query(
-                        q,
-                        top_k=top_k,
-                        filter_range=filter_range,
-                        extra_doubles=extra_doubles,
-                        optimize_index_choice=optimize_index_choice,
-                    )
-                    run_results[
-                        f"postfiltering{'-optimized' if optimize_index_choice else ''}_{extra_doubles}"
-                    ].append(
-                        (
-                            len([x for x in gt[0] if x in postfilter_result[0]])
-                            / len(gt[0]),
-                            time.time() - start,
+                for starting_complexity in [10, 20, 40, 80, 160, 320]:
+                    for extra_doubles in range(6):
+                        start = time.time()
+                        postfilter_result = index.postfilter_query(
+                            q,
+                            top_k=top_k,
+                            filter_range=filter_range,
+                            extra_doubles=extra_doubles,
+                            optimize_index_choice=optimize_index_choice,
+                            starting_complexity=starting_complexity
                         )
-                    )
+                        run_results[
+                            f"postfiltering{'-optimized' if optimize_index_choice else ''}_{extra_doubles}_{starting_complexity}"
+                        ].append(
+                            (
+                                len([x for x in gt[0] if x in postfilter_result[0]])
+                                / len(gt[0]),
+                                time.time() - start,
+                            )
+                        )
 
         with open(output_file, "a") as f:
             for name, zipped_recalls_times in run_results.items():
