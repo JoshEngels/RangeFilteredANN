@@ -1,0 +1,308 @@
+[
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/abstract_data_store.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/abstract_data_store.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/abstract_data_store.cpp",
+  "output": "src/CMakeFiles/diskann.dir/abstract_data_store.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/ann_exception.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/ann_exception.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/ann_exception.cpp",
+  "output": "src/CMakeFiles/diskann.dir/ann_exception.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/disk_utils.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/disk_utils.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/disk_utils.cpp",
+  "output": "src/CMakeFiles/diskann.dir/disk_utils.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/distance.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/distance.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/distance.cpp",
+  "output": "src/CMakeFiles/diskann.dir/distance.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/index.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/index.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/index.cpp",
+  "output": "src/CMakeFiles/diskann.dir/index.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/in_mem_graph_store.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/in_mem_graph_store.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/in_mem_graph_store.cpp",
+  "output": "src/CMakeFiles/diskann.dir/in_mem_graph_store.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/in_mem_data_store.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/in_mem_data_store.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/in_mem_data_store.cpp",
+  "output": "src/CMakeFiles/diskann.dir/in_mem_data_store.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/linux_aligned_file_reader.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/linux_aligned_file_reader.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/linux_aligned_file_reader.cpp",
+  "output": "src/CMakeFiles/diskann.dir/linux_aligned_file_reader.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/math_utils.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/math_utils.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/math_utils.cpp",
+  "output": "src/CMakeFiles/diskann.dir/math_utils.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/natural_number_map.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/natural_number_map.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/natural_number_map.cpp",
+  "output": "src/CMakeFiles/diskann.dir/natural_number_map.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/natural_number_set.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/natural_number_set.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/natural_number_set.cpp",
+  "output": "src/CMakeFiles/diskann.dir/natural_number_set.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/memory_mapper.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/memory_mapper.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/memory_mapper.cpp",
+  "output": "src/CMakeFiles/diskann.dir/memory_mapper.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/partition.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/partition.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/partition.cpp",
+  "output": "src/CMakeFiles/diskann.dir/partition.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/pq.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/pq.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/pq.cpp",
+  "output": "src/CMakeFiles/diskann.dir/pq.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/pq_flash_index.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_flash_index.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_flash_index.cpp",
+  "output": "src/CMakeFiles/diskann.dir/pq_flash_index.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/scratch.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/scratch.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/scratch.cpp",
+  "output": "src/CMakeFiles/diskann.dir/scratch.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/logger.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/logger.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/logger.cpp",
+  "output": "src/CMakeFiles/diskann.dir/logger.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/utils.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/utils.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/utils.cpp",
+  "output": "src/CMakeFiles/diskann.dir/utils.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/filter_utils.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/filter_utils.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/filter_utils.cpp",
+  "output": "src/CMakeFiles/diskann.dir/filter_utils.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/index_factory.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/index_factory.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/index_factory.cpp",
+  "output": "src/CMakeFiles/diskann.dir/index_factory.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/abstract_index.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/abstract_index.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/abstract_index.cpp",
+  "output": "src/CMakeFiles/diskann.dir/abstract_index.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/pq_l2_distance.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_l2_distance.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_l2_distance.cpp",
+  "output": "src/CMakeFiles/diskann.dir/pq_l2_distance.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann.dir/pq_data_store.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_data_store.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_data_store.cpp",
+  "output": "src/CMakeFiles/diskann.dir/pq_data_store.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/abstract_data_store.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/abstract_data_store.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/abstract_data_store.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/abstract_data_store.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/ann_exception.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/ann_exception.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/ann_exception.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/ann_exception.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/disk_utils.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/disk_utils.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/disk_utils.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/disk_utils.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/distance.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/distance.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/distance.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/distance.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/index.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/index.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/index.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/index.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/in_mem_graph_store.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/in_mem_graph_store.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/in_mem_graph_store.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/in_mem_graph_store.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/in_mem_data_store.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/in_mem_data_store.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/in_mem_data_store.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/in_mem_data_store.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/linux_aligned_file_reader.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/linux_aligned_file_reader.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/linux_aligned_file_reader.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/linux_aligned_file_reader.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/math_utils.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/math_utils.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/math_utils.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/math_utils.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/natural_number_map.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/natural_number_map.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/natural_number_map.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/natural_number_map.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/natural_number_set.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/natural_number_set.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/natural_number_set.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/natural_number_set.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/memory_mapper.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/memory_mapper.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/memory_mapper.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/memory_mapper.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/partition.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/partition.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/partition.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/partition.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/pq.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/pq.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/pq.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/pq.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/pq_flash_index.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_flash_index.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_flash_index.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/pq_flash_index.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/scratch.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/scratch.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/scratch.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/scratch.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/logger.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/logger.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/logger.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/logger.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/utils.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/utils.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/utils.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/utils.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/filter_utils.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/filter_utils.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/filter_utils.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/filter_utils.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/index_factory.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/index_factory.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/index_factory.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/index_factory.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/abstract_index.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/abstract_index.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/abstract_index.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/abstract_index.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/pq_l2_distance.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_l2_distance.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_l2_distance.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/pq_l2_distance.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/src",
+  "command": "g++ -DMKL_ILP64 -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -m64 -Wl,--no-as-needed -Werror -o CMakeFiles/diskann_s.dir/pq_data_store.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_data_store.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/src/pq_data_store.cpp",
+  "output": "src/CMakeFiles/diskann_s.dir/pq_data_store.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/python",
+  "command": "g++ -DMKL_ILP64 -DVERSION_INFO=\\\"0.0.0dev\\\" -D_diskannpy_EXPORTS -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl -I/data/scratch/jae/RangeFilteredANN/DiskANN/python/include -isystem /data/scratch/jae/miniconda3/envs/torch/lib/python3.10/site-packages/pybind11/include -isystem /data/scratch/jae/miniconda3/envs/torch/include/python3.10  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -fPIC -fvisibility=hidden -m64 -Wl,--no-as-needed -flto -fno-fat-lto-objects -o CMakeFiles/_diskannpy.dir/src/module.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/python/src/module.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/python/src/module.cpp",
+  "output": "python/CMakeFiles/_diskannpy.dir/src/module.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/python",
+  "command": "g++ -DMKL_ILP64 -DVERSION_INFO=\\\"0.0.0dev\\\" -D_diskannpy_EXPORTS -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl -I/data/scratch/jae/RangeFilteredANN/DiskANN/python/include -isystem /data/scratch/jae/miniconda3/envs/torch/lib/python3.10/site-packages/pybind11/include -isystem /data/scratch/jae/miniconda3/envs/torch/include/python3.10  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -fPIC -fvisibility=hidden -m64 -Wl,--no-as-needed -flto -fno-fat-lto-objects -o CMakeFiles/_diskannpy.dir/src/builder.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/python/src/builder.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/python/src/builder.cpp",
+  "output": "python/CMakeFiles/_diskannpy.dir/src/builder.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/python",
+  "command": "g++ -DMKL_ILP64 -DVERSION_INFO=\\\"0.0.0dev\\\" -D_diskannpy_EXPORTS -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl -I/data/scratch/jae/RangeFilteredANN/DiskANN/python/include -isystem /data/scratch/jae/miniconda3/envs/torch/lib/python3.10/site-packages/pybind11/include -isystem /data/scratch/jae/miniconda3/envs/torch/include/python3.10  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -fPIC -fvisibility=hidden -m64 -Wl,--no-as-needed -flto -fno-fat-lto-objects -o CMakeFiles/_diskannpy.dir/src/dynamic_memory_index.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/python/src/dynamic_memory_index.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/python/src/dynamic_memory_index.cpp",
+  "output": "python/CMakeFiles/_diskannpy.dir/src/dynamic_memory_index.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/python",
+  "command": "g++ -DMKL_ILP64 -DVERSION_INFO=\\\"0.0.0dev\\\" -D_diskannpy_EXPORTS -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl -I/data/scratch/jae/RangeFilteredANN/DiskANN/python/include -isystem /data/scratch/jae/miniconda3/envs/torch/lib/python3.10/site-packages/pybind11/include -isystem /data/scratch/jae/miniconda3/envs/torch/include/python3.10  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -fPIC -fvisibility=hidden -m64 -Wl,--no-as-needed -flto -fno-fat-lto-objects -o CMakeFiles/_diskannpy.dir/src/static_memory_index.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/python/src/static_memory_index.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/python/src/static_memory_index.cpp",
+  "output": "python/CMakeFiles/_diskannpy.dir/src/static_memory_index.cpp.o"
+},
+{
+  "directory": "/data/scratch/jae/RangeFilteredANN/DiskANN/build/python",
+  "command": "g++ -DMKL_ILP64 -DVERSION_INFO=\\\"0.0.0dev\\\" -D_diskannpy_EXPORTS -I/data/scratch/jae/RangeFilteredANN/DiskANN/include -I/usr/include/mkl -I/data/scratch/jae/RangeFilteredANN/DiskANN/python/include -isystem /data/scratch/jae/miniconda3/envs/torch/lib/python3.10/site-packages/pybind11/include -isystem /data/scratch/jae/miniconda3/envs/torch/include/python3.10  -fopenmp -mavx2 -mfma -msse2 -ftree-vectorize -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fopenmp -fopenmp-simd -funroll-loops -Wfatal-errors -DUSE_AVX2 -std=gnu++17 -fPIC -fvisibility=hidden -m64 -Wl,--no-as-needed -flto -fno-fat-lto-objects -o CMakeFiles/_diskannpy.dir/src/static_disk_index.cpp.o -c /data/scratch/jae/RangeFilteredANN/DiskANN/python/src/static_disk_index.cpp",
+  "file": "/data/scratch/jae/RangeFilteredANN/DiskANN/python/src/static_disk_index.cpp",
+  "output": "python/CMakeFiles/_diskannpy.dir/src/static_disk_index.cpp.o"
+}
+]

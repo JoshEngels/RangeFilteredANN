@@ -640,10 +640,10 @@ void Index<T, TagT, LabelT>::load(const char *filename, uint32_t num_threads, ui
     }
 
     reposition_frozen_point_to_end();
-    diskann::cout << "Num frozen points:" << _num_frozen_pts << " _nd: " << _nd << " _start: " << _start
-                  << " size(_location_to_tag): " << _location_to_tag.size()
-                  << " size(_tag_to_location):" << _tag_to_location.size() << " Max points: " << _max_points
-                  << std::endl;
+    // diskann::cout << "Num frozen points:" << _num_frozen_pts << " _nd: " << _nd << " _start: " << _start
+    //               << " size(_location_to_tag): " << _location_to_tag.size()
+    //               << " size(_tag_to_location):" << _tag_to_location.size() << " Max points: " << _max_points
+    //               << std::endl;
 
     // For incremental index, _query_scratch is initialized in the constructor.
     // For the bulk index, the params required to initialize _query_scratch
@@ -1967,10 +1967,10 @@ std::pair<uint32_t, uint32_t> Index<T, TagT, LabelT>::search(const T *query, con
 
     if (L > scratch->get_L())
     {
-        diskann::cout << "Attempting to expand query scratch_space. Was created "
-                      << "with Lsize: " << scratch->get_L() << " but search L is: " << L << std::endl;
+        // diskann::cout << "Attempting to expand query scratch_space. Was created "
+        //               << "with Lsize: " << scratch->get_L() << " but search L is: " << L << std::endl;
         scratch->resize_for_new_L(L);
-        diskann::cout << "Resize completed. New scratch->L is " << scratch->get_L() << std::endl;
+        // diskann::cout << "Resize completed. New scratch->L is " << scratch->get_L() << std::endl;
     }
 
     const std::vector<LabelT> unused_filter_label;

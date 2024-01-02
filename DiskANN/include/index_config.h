@@ -170,7 +170,7 @@ class IndexConfigBuilder
     {
         if (index_write_params_ptr == nullptr)
         {
-            diskann::cout << "Passed, empty build_params while creating index config" << std::endl;
+            // diskann::cout << "Passed, empty build_params while creating index config" << std::endl;
             return *this;
         }
         this->_index_write_params = index_write_params_ptr;
@@ -187,7 +187,7 @@ class IndexConfigBuilder
     {
         if (search_params_ptr == nullptr)
         {
-            diskann::cout << "Passed, empty search_params while creating index config" << std::endl;
+            // diskann::cout << "Passed, empty search_params while creating index config" << std::endl;
             return *this;
         }
         this->_index_search_params = search_params_ptr;

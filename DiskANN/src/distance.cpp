@@ -602,37 +602,37 @@ template <> diskann::Distance<float> *get_distance_function(diskann::Metric m)
     {
         if (Avx2SupportedCPU)
         {
-            diskann::cout << "L2: Using AVX2 distance computation DistanceL2Float" << std::endl;
+            // diskann::cout << "L2: Using AVX2 distance computation DistanceL2Float" << std::endl;
             return new diskann::DistanceL2Float();
         }
         else if (AvxSupportedCPU)
         {
-            diskann::cout << "L2: AVX2 not supported. Using AVX distance computation" << std::endl;
+            // diskann::cout << "L2: AVX2 not supported. Using AVX distance computation" << std::endl;
             return new diskann::AVXDistanceL2Float();
         }
         else
         {
-            diskann::cout << "L2: Older CPU. Using slow distance computation" << std::endl;
+            // diskann::cout << "L2: Older CPU. Using slow distance computation" << std::endl;
             return new diskann::SlowDistanceL2<float>();
         }
     }
     else if (m == diskann::Metric::COSINE)
     {
-        diskann::cout << "Cosine: Using either AVX or AVX2 implementation" << std::endl;
+        // diskann::cout << "Cosine: Using either AVX or AVX2 implementation" << std::endl;
         return new diskann::DistanceCosineFloat();
     }
     else if (m == diskann::Metric::INNER_PRODUCT)
     {
-        diskann::cout << "Inner product: Using AVX2 implementation "
-                         "AVXDistanceInnerProductFloat"
-                      << std::endl;
+        // diskann::cout << "Inner product: Using AVX2 implementation "
+        //                  "AVXDistanceInnerProductFloat"
+        //               << std::endl;
         return new diskann::AVXDistanceInnerProductFloat();
     }
     else if (m == diskann::Metric::FAST_L2)
     {
-        diskann::cout << "Fast_L2: Using AVX2 implementation with norm "
-                         "memoization DistanceFastL2<float>"
-                      << std::endl;
+        // diskann::cout << "Fast_L2: Using AVX2 implementation with norm "
+        //                  "memoization DistanceFastL2<float>"
+        //               << std::endl;
         return new diskann::DistanceFastL2<float>();
     }
     else
@@ -652,12 +652,12 @@ template <> diskann::Distance<int8_t> *get_distance_function(diskann::Metric m)
     {
         if (Avx2SupportedCPU)
         {
-            diskann::cout << "Using AVX2 distance computation DistanceL2Int8." << std::endl;
+            // diskann::cout << "Using AVX2 distance computation DistanceL2Int8." << std::endl;
             return new diskann::DistanceL2Int8();
         }
         else if (AvxSupportedCPU)
         {
-            diskann::cout << "AVX2 not supported. Using AVX distance computation" << std::endl;
+            // diskann::cout << "AVX2 not supported. Using AVX distance computation" << std::endl;
             return new diskann::AVXDistanceL2Int8();
         }
         else

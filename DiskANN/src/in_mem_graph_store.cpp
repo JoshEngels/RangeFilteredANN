@@ -150,11 +150,11 @@ std::tuple<uint32_t, uint32_t, size_t> InMemGraphStore::load_impl(const std::str
     in.read((char *)&file_frozen_pts, sizeof(size_t));
     size_t vamana_metadata_size = sizeof(size_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(size_t);
 
-    diskann::cout << "From graph header, expected_file_size: " << expected_file_size
-                  << ", _max_observed_degree: " << _max_observed_degree << ", _start: " << start
-                  << ", file_frozen_pts: " << file_frozen_pts << std::endl;
+    // diskann::cout << "From graph header, expected_file_size: " << expected_file_size
+    //               << ", _max_observed_degree: " << _max_observed_degree << ", _start: " << start
+    //               << ", file_frozen_pts: " << file_frozen_pts << std::endl;
 
-    diskann::cout << "Loading vamana graph " << filename << "..." << std::flush;
+    // diskann::cout << "Loading vamana graph " << filename << "..." << std::flush;
 
     // If user provides more points than max_points
     // resize the _graph to the larger size.
@@ -192,8 +192,8 @@ std::tuple<uint32_t, uint32_t, size_t> InMemGraphStore::load_impl(const std::str
         }
     }
 
-    diskann::cout << "done. Index has " << nodes_read << " nodes and " << cc << " out-edges, _start is set to " << start
-                  << std::endl;
+    // diskann::cout << "done. Index has " << nodes_read << " nodes and " << cc << " out-edges, _start is set to " << start
+    //               << std::endl;
     return std::make_tuple(nodes_read, start, file_frozen_pts);
 }
 
