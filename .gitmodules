@@ -1,3 +1,0 @@
-[submodule "DiskANN"]
-	path = DiskANN
-	url = https://github.com/microsoft/DiskANN/
