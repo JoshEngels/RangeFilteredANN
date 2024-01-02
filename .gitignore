@@ -1,5 +1,6 @@
 indices
 __pycache__
-*.txt
+*experiment*.txt
 *.png
 *.pdf
+*.so
