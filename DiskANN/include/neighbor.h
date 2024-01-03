@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <mutex>
+#include <queue>
 #include <vector>
 #include "utils.h"
 
@@ -52,46 +53,7 @@ class NeighborPriorityQueue
     // set item or it has a greated distance than the final
     // item in the set. The set cursor that is used to pop() the
     // next item will be set to the lowest index of an uncheck item
-    void insert(const Neighbor &nbr)
-    {
-        if (_size == _capacity && _data[_size - 1] < nbr)
-        {
-            return;
-        }
-
-        size_t lo = 0, hi = _size;
-        while (lo < hi)
-        {
-            size_t mid = (lo + hi) >> 1;
-            if (nbr < _data[mid])
-            {
-                hi = mid;
-                // Make sure the same id isn't inserted into the set
-            }
-            else if (_data[mid].id == nbr.id)
-            {
-                return;
-            }
-            else
-            {
-                lo = mid + 1;
-            }
-        }
-
-        if (lo < _capacity)
-        {
-            std::memmove(&_data[lo + 1], &_data[lo], (_size - lo) * sizeof(Neighbor));
-        }
-        _data[lo] = {nbr.id, nbr.distance};
-        if (_size < _capacity)
-        {
-            _size++;
-        }
-        if (lo < _cur)
-        {
-            _cur = lo;
-        }
-    }
+    void insert(const Neighbor &nbr);
 
     Neighbor closest_unexpanded()
     {
@@ -147,6 +109,14 @@ class NeighborPriorityQueue
   private:
     size_t _size, _capacity, _cur;
     std::vector<Neighbor> _data;
+
+    struct NeighborCompareDistance {
+        bool operator()(const Neighbor& n1, const Neighbor& n2) {
+            return n1.distance > n2.distance;
+        }
+    };
+
+    std::priority_queue<Neighbor, std::vector<Neighbor>, NeighborCompareDistance> _extra_nodes;
 };
 
 } // namespace diskann

@@ -67,5 +67,5 @@ def plot(dataset_name):
     plt.savefig(f"{dataset_name}_experiment.png", bbox_inches="tight")
 
 
-plot("glove-100-angular")
-plot("sift-128-euclidean")
+plot("glove-100-angular_beamsearch")
+plot("sift-128-euclidean_beamsearch")
