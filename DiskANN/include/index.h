@@ -66,7 +66,7 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
                             const size_t num_frozen_pts = 0, const bool dynamic_index = false,
                             const bool enable_tags = false, const bool concurrent_consolidate = false,
                             const bool pq_dist_build = false, const size_t num_pq_chunks = 0,
-                            const bool use_opq = false, const bool filtered_index = false);
+                            const bool use_opq = false, const bool filtered_index = false, const std::vector<float> &filters = {});
 
     DISKANN_DLLEXPORT ~Index();
 
@@ -132,7 +132,7 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
     // can customize L on a per-query basis without tampering with "Parameters"
     template <typename IDType>
     DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> search(const T *query, const size_t K, const uint32_t L,
-                                                           IDType *indices, float *distances = nullptr);
+                                                           IDType *indices, float *distances = nullptr, const std::pair<float, float> &range_filter = {0, 0});
 
     // Initialize space for res_vectors before calling.
     DISKANN_DLLEXPORT size_t search_with_tags(const T *query, const uint64_t K, const uint32_t L, TagT *tags,
@@ -256,7 +256,7 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
     // The query to use is placed in scratch->aligned_query
     std::pair<uint32_t, uint32_t> iterate_to_fixed_point(InMemQueryScratch<T> *scratch, const uint32_t Lindex,
                                                          const std::vector<uint32_t> &init_ids, bool use_filter,
-                                                         const std::vector<LabelT> &filters, bool search_invocation);
+                                                         const std::vector<LabelT> &filters, bool search_invocation, const std::pair<float, float> &range_filter = {0, 0});
 
     void search_for_point_and_prune(int location, uint32_t Lindex, std::vector<uint32_t> &pruned_list,
                                     InMemQueryScratch<T> *scratch, bool use_filter = false,
@@ -440,6 +440,8 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
 
     // Per node lock, cardinality=_max_points + _num_frozen_points
     std::vector<non_recursive_mutex> _locks;
+
+    std::vector<float> _filters;
 
     static const float INDEX_GROWTH_FACTOR;
 };

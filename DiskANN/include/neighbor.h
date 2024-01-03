@@ -9,6 +9,12 @@
 #include <vector>
 #include "utils.h"
 
+inline std::string getEnvVar( std::string const & key )
+{
+    char * val = getenv( key.c_str() );
+    return val == NULL ? std::string("") : std::string(val);
+}
+
 namespace diskann
 {
 
@@ -40,11 +46,11 @@ struct Neighbor
 class NeighborPriorityQueue
 {
   public:
-    NeighborPriorityQueue() : _size(0), _capacity(0), _cur(0)
+    NeighborPriorityQueue() : _size(0), _capacity(0), _cur(0), _goal_num_filtered(0)
     {
     }
 
-    explicit NeighborPriorityQueue(size_t capacity) : _size(0), _capacity(capacity), _cur(0), _data(capacity + 1)
+    explicit NeighborPriorityQueue(size_t capacity) : _size(0), _capacity(capacity), _cur(0), _data(capacity + 1), _goal_num_filtered(capacity)
     {
     }
 
@@ -66,10 +72,7 @@ class NeighborPriorityQueue
         return _data[pre];
     }
 
-    bool has_unexpanded_node() const
-    {
-        return _cur < _size;
-    }
+    bool has_unexpanded_node() const;
 
     size_t size() const
     {
@@ -88,6 +91,14 @@ class NeighborPriorityQueue
             _data.resize(capacity + 1);
         }
         _capacity = capacity;
+        _goal_num_filtered = capacity;
+    }
+
+    void set_filter(const std::pair<float, float> &range_filter)
+    {
+        if (range_filter.second > range_filter.first) {
+          _range_filter = range_filter;
+        }
     }
 
     Neighbor &operator[](size_t i)
@@ -104,11 +115,15 @@ class NeighborPriorityQueue
     {
         _size = 0;
         _cur = 0;
+        _try_new_beamsearch = getEnvVar("TRY_NEW_BEAMSEARCH") == "1";
+        _goal_num_filtered = 0;
     }
 
   private:
-    size_t _size, _capacity, _cur;
+    size_t _size, _capacity, _cur, _goal_num_filtered;
     std::vector<Neighbor> _data;
+    bool _try_new_beamsearch = getEnvVar("TRY_NEW_BEAMSEARCH") == "1";
+    std::optional<std::pair<float, float>> _range_filter = std::nullopt;
 
     struct NeighborCompareDistance {
         bool operator()(const Neighbor& n1, const Neighbor& n2) {

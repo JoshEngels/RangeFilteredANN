@@ -4,7 +4,7 @@
 import json
 import os
 import warnings
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 
@@ -44,7 +44,8 @@ class StaticMemoryIndex:
         distance_metric: Optional[DistanceMetric] = None,
         vector_dtype: Optional[VectorDType] = None,
         dimensions: Optional[int] = None,
-        enable_filters: bool = False
+        enable_filters: bool = False,
+        range_filters: List[float] = [],
     ):
         """
         ### Parameters
@@ -122,10 +123,11 @@ class StaticMemoryIndex:
             index_path=index_prefix_path,
             num_threads=num_threads,
             initial_search_complexity=initial_search_complexity,
+            filters=range_filters
         )
 
     def search(
-            self, query: VectorLike, k_neighbors: int, complexity: int, filter_label: str = ""
+            self, query: VectorLike, k_neighbors: int, complexity: int, filter_label: str = "", filter_range: List[float] = (0, 0)
     ) -> QueryResponse:
         """
         Searches the index by a single query vector.
@@ -166,7 +168,7 @@ class StaticMemoryIndex:
             complexity = k_neighbors
 
         if filter_label == "":
-            neighbors, distances = self._index.search(query=_query, knn=k_neighbors, complexity=complexity)
+            neighbors, distances = self._index.search(query=_query, knn=k_neighbors, complexity=complexity, range_filter=filter_range)
         else:
             filter = self._labels_map[filter_label]
             neighbors, distances = self._index.search_with_filter(

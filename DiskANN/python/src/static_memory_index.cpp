@@ -11,7 +11,7 @@ namespace diskannpy
 template <class DT>
 diskann::Index<DT, StaticIdType, filterT> static_index_builder(const diskann::Metric m, const size_t num_points,
                                                                const size_t dimensions,
-                                                               const uint32_t initial_search_complexity)
+                                                               const uint32_t initial_search_complexity, const std::vector<float> &filters)
 {
     if (initial_search_complexity == 0)
     {
@@ -27,14 +27,16 @@ diskann::Index<DT, StaticIdType, filterT> static_index_builder(const diskann::Me
                               false,  // no concurrent_consolidate,
                               false,  // pq_dist_build
                               0,      // num_pq_chunks
-                              false); // use_opq = false
+                              false, // use_opq = false
+                              false, // filtered_index
+                              filters); 
 }
 
 template <class DT>
 StaticMemoryIndex<DT>::StaticMemoryIndex(const diskann::Metric m, const std::string &index_prefix,
                                          const size_t num_points, const size_t dimensions, const uint32_t num_threads,
-                                         const uint32_t initial_search_complexity)
-    : _index(static_index_builder<DT>(m, num_points, dimensions, initial_search_complexity))
+                                         const uint32_t initial_search_complexity, const std::vector<float> &filters)
+    : _index(static_index_builder<DT>(m, num_points, dimensions, initial_search_complexity, filters))
 {
     const uint32_t _num_threads = num_threads != 0 ? num_threads : omp_get_num_procs();
     _index.load(index_prefix.c_str(), _num_threads, initial_search_complexity);
@@ -42,12 +44,12 @@ StaticMemoryIndex<DT>::StaticMemoryIndex(const diskann::Metric m, const std::str
 
 template <typename DT>
 NeighborsAndDistances<StaticIdType> StaticMemoryIndex<DT>::search(
-    py::array_t<DT, py::array::c_style | py::array::forcecast> &query, const uint64_t knn, const uint64_t complexity)
+    py::array_t<DT, py::array::c_style | py::array::forcecast> &query, const uint64_t knn, const uint64_t complexity, const std::pair<float, float> &range_filter)
 {
     py::array_t<StaticIdType> ids(knn);
     py::array_t<float> dists(knn);
     std::vector<DT *> empty_vector;
-    _index.search(query.data(), knn, complexity, ids.mutable_data(), dists.mutable_data());
+    _index.search(query.data(), knn, complexity, ids.mutable_data(), dists.mutable_data(), range_filter);
     return std::make_pair(ids, dists);
 }
 

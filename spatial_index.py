@@ -48,28 +48,34 @@ class DiskANNIndex(SpatialIndex):
         )
         return self
 
-    def load(self):
+    def load(self, filters):
         self.index = diskannpy.StaticMemoryIndex(
             index_directory=self.index_directory,
             num_threads=0,
             initial_search_complexity=self.build_complexity,
             index_prefix=self.name,
+            range_filters = filters
         )
         return self
 
-    def search(self, query, k, complexity):
-        search_result = self.index.search(
-            query=query, complexity=complexity, k_neighbors=k
-        )
+    def search(self, query, k, complexity, filter_range=None):
+        if filter_range is None:
+            search_result = self.index.search(
+                query=query, complexity=complexity, k_neighbors=k
+            )
+        else:
+            search_result = self.index.search(
+                query=query, complexity=complexity, k_neighbors=k, filter_range=filter_range
+            )
         return search_result.identifiers, search_result.distances
 
-    def build_or_load(self, data):
+    def build_or_load(self, data, filters):
         # print(self.index_path)
         # print(os.path.exists(self.index_path))
-        if os.path.exists(self.index_path):
-            return self.load()
-        else:
-            return self.build(data)
+        if not os.path.exists(self.index_path):
+            self.build(data)
+        
+        return self.load(filters)
 
 
 class DiskANNIndexFactory:

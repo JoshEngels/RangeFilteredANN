@@ -1,10 +1,13 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
+#define PYBIND11_DETAILED_ERROR_MESSAGES
+
 #include <string>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/numpy.h>
 
 #include "defaults.h"
 #include "distance.h"
@@ -15,7 +18,7 @@
 #include "static_memory_index.h"
 
 PYBIND11_MAKE_OPAQUE(std::vector<uint32_t>);
-PYBIND11_MAKE_OPAQUE(std::vector<float>);
+// PYBIND11_MAKE_OPAQUE(std::vector<float>);
 PYBIND11_MAKE_OPAQUE(std::vector<int8_t>);
 PYBIND11_MAKE_OPAQUE(std::vector<uint8_t>);
 
@@ -53,10 +56,10 @@ template <typename T> inline void add_variant(py::module_ &m, const Variant &var
 
     py::class_<diskannpy::StaticMemoryIndex<T>>(m, variant.static_memory_index_name.c_str())
         .def(py::init<const diskann::Metric, const std::string &, const size_t, const size_t, const uint32_t,
-                      const uint32_t>(),
+                      const uint32_t, const std::vector<float> &>(),
              "distance_metric"_a, "index_path"_a, "num_points"_a, "dimensions"_a, "num_threads"_a,
-             "initial_search_complexity"_a)
-        .def("search", &diskannpy::StaticMemoryIndex<T>::search, "query"_a, "knn"_a, "complexity"_a)
+             "initial_search_complexity"_a, "filters"_a)
+        .def("search", &diskannpy::StaticMemoryIndex<T>::search, "query"_a, "knn"_a, "complexity"_a, "range_filter"_a = std::pair<float, float>())
         .def("search_with_filter", &diskannpy::StaticMemoryIndex<T>::search_with_filter, "query"_a, "knn"_a,
              "complexity"_a, "filter"_a)
         .def("batch_search", &diskannpy::StaticMemoryIndex<T>::batch_search, "queries"_a, "num_queries"_a, "knn"_a,

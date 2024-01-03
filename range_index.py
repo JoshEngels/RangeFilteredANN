@@ -14,27 +14,6 @@ BUILD_COMPLEXITY = 64
 DEGREE = 32
 
 
-def create_diskann_index(name, data, alpha, build_complexity, degree, distance_metric):
-    if not os.path.exists(INDEX_DIRECTORY + "/" + name):
-        diskannpy.build_memory_index(
-            data,
-            alpha=alpha,
-            complexity=build_complexity,
-            graph_degree=degree,
-            distance_metric=distance_metric,
-            index_directory=INDEX_DIRECTORY,
-            index_prefix=name,
-            num_threads=0,
-        )
-
-    return diskannpy.StaticMemoryIndex(
-        index_directory=INDEX_DIRECTORY,
-        num_threads=0,
-        initial_search_complexity=build_complexity,
-        index_prefix=name,
-    )
-
-
 class RangeIndex:
     def __init__(self, data, dataset_name, filter_values, cutoff_pow, distance_metric):
         if distance_metric == "mips":
@@ -59,11 +38,11 @@ class RangeIndex:
             for start in range(0, len(data), current_bucket_size):
                 self.indices[(current_pow, start)] = index_factory.create_index(
                     name=f"{dataset_name}_{current_pow}_{start}"
-                ).build_or_load(data[start : start + current_bucket_size])
+                ).build_or_load(data[start : start + current_bucket_size], filters=self.filter_values[start : start + current_bucket_size])
 
         self.indices["full"] = index_factory.create_index(
             name=f"{dataset_name}_full"
-        ).build_or_load(data)
+        ).build_or_load(data, filters=self.filter_values)
 
     def first_greater_than(self, filter_value):
         start = 0
@@ -350,7 +329,8 @@ class RangeIndex:
         extra_doubles,
         index_key="full",
         optimize_index_choice=False,
-        starting_complexity=None
+        starting_complexity=None,
+        use_newbeam=False
     ):
         if self.distance_metric == "mips":
             query /= np.sum(query**2)
@@ -382,10 +362,12 @@ class RangeIndex:
                 # print(optimize_index_choice, current_complexity * pow(2, extra_doubles), np.sqrt(len(self.data) if index_key == "full" else 2**index_key[0]))
                 return self.prefilter_query(query, top_k, filter_range)
 
+            filter_range_experiment = filter_range if use_newbeam else [0, 0]
             result = self.indices[index_key].search(
                 query,
                 complexity=current_complexity,
                 k=current_complexity,
+                filter_range=filter_range_experiment,
             )
             index_offset = 0 if index_key == "full" else index_key[1]
             filtered_identifiers = []

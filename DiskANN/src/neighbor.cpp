@@ -2,13 +2,18 @@
 
 namespace diskann {
 
+  // Wrapper insert method that determines whether to double the beam and add best nonvisited nodes
+  
+
   void NeighborPriorityQueue::insert(const Neighbor &nbr)  {
+        if (_try_new_beamsearch) {
+          _extra_nodes.push(nbr);
+        }
+
         if (_size == _capacity && _data[_size - 1] < nbr)
         {
             return;
         }
-
-        _extra_nodes.push(nbr);
 
         size_t lo = 0, hi = _size;
         while (lo < hi)
@@ -44,4 +49,9 @@ namespace diskann {
         }
     }
 
-}
+    bool NeighborPriorityQueue::has_unexpanded_node() const
+    {
+        return _cur < _size;
+    }
+    
+    } // namespace diskann
