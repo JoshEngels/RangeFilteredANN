@@ -381,6 +381,7 @@ class RangeIndex:
                     filtered_identifiers.append(identifier)
                     filtered_distances.append(distance)
 
+            print(len(filtered_identifiers), current_complexity, use_newbeam)
             if len(filtered_identifiers) >= top_k:
                 if extra_doubles == 0:
                     # print(optimize_index_choice, current_complexity)

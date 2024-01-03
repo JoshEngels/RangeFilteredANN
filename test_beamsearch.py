@@ -28,7 +28,8 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
 
     top_k = 10
 
-    for filter_width in [0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75]:
+    # for filter_width in [0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75]:
+    for filter_width in [0.1]:
         run_results = defaultdict(list)
         for q in tqdm(queries[:10]):
             random_filter_start = np.random.uniform(0, 1 - filter_width)
@@ -39,10 +40,12 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
             run_results["prefiltering"].append((1, time.time() - start))
 
             for use_newbeam in [True, False]:
-                os.environ["TRY_NEW_BEAMSEARCH"] = "1" if use_newbeam else "0"
+                print(f"Using new beam: {use_newbeam}")
                 for optimize_index_choice in [True, False]:
                     for starting_complexity in [10, 20, 40, 80, 160, 320]:
                         for extra_doubles in range(6):
+                            if extra_doubles > 0:
+                                continue
                             start = time.time()
                             postfilter_result = index.postfilter_query(
                                 q,
@@ -53,6 +56,7 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
                                 starting_complexity=starting_complexity,
                                 use_newbeam=use_newbeam
                             )
+                            print(postfilter_result[0], gt[0], optimize_index_choice, starting_complexity)
                             run_results[
                                 f"postfiltering{'-newbeam' if use_newbeam else ''}{'-optimized' if optimize_index_choice else ''}_{extra_doubles}_{starting_complexity}"
                             ].append(

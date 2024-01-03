@@ -794,7 +794,7 @@ std::pair<uint32_t, uint32_t> Index<T, TagT, LabelT>::iterate_to_fixed_point(
     std::vector<Neighbor> &expanded_nodes = scratch->pool();
     NeighborPriorityQueue &best_L_nodes = scratch->best_l_nodes();
     best_L_nodes.reserve(Lsize);
-    best_L_nodes.set_filter(range_filter);
+    best_L_nodes.set_filter(range_filter, Lsize);
     tsl::robin_set<uint32_t> &inserted_into_pool_rs = scratch->inserted_into_pool_rs();
     boost::dynamic_bitset<> &inserted_into_pool_bs = scratch->inserted_into_pool_bs();
     std::vector<uint32_t> &id_scratch = scratch->id_scratch();
@@ -872,7 +872,7 @@ std::pair<uint32_t, uint32_t> Index<T, TagT, LabelT>::iterate_to_fixed_point(
             distance = distances[0];
 
             Neighbor nn = Neighbor(id, distance);
-            best_L_nodes.insert(nn);
+            best_L_nodes.insert(nn, _filters.at(nn.id));
         }
     }
 
@@ -968,7 +968,7 @@ std::pair<uint32_t, uint32_t> Index<T, TagT, LabelT>::iterate_to_fixed_point(
         // Insert <id, dist> pairs into the pool of candidates
         for (size_t m = 0; m < id_scratch.size(); ++m)
         {
-            best_L_nodes.insert(Neighbor(id_scratch[m], dist_scratch[m]));
+            best_L_nodes.insert(Neighbor(id_scratch[m], dist_scratch[m]), _filters.at(id_scratch[m]));
         }
     }
     return std::make_pair(hops, cmps);
@@ -1989,6 +1989,10 @@ std::pair<uint32_t, uint32_t> Index<T, TagT, LabelT>::search(const T *query, con
     size_t pos = 0;
     for (size_t i = 0; i < best_L_nodes.size(); ++i)
     {
+        if (!best_L_nodes.meets_constraint(best_L_nodes[i].id)) {
+          continue;
+        }
+
         if (best_L_nodes[i].id < _max_points)
         {
             // safe because Index uses uint32_t ids internally
