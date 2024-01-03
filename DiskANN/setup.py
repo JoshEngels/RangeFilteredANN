@@ -13,9 +13,7 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.install_lib import install_lib
 
 # Convert distutils Windows platform specifiers to CMake -A arguments
-PLAT_TO_CMAKE = {
-    "win-amd64": "x64"
-}
+PLAT_TO_CMAKE = {"win-amd64": "x64"}
 
 
 class CMakeExtension(Extension):
@@ -46,7 +44,7 @@ class CMakeBuild(build_ext):
             f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}{os.sep}",
             f"-DPYTHON_EXECUTABLE={sys.executable}",
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
-            f"-DVERSION_INFO={self.distribution.get_version()}"  # commented out, we want this set in the CMake file
+            f"-DVERSION_INFO={self.distribution.get_version()}",  # commented out, we want this set in the CMake file
         ]
         build_args = []
         # Adding CMake arguments set as environment variable
@@ -76,7 +74,6 @@ class CMakeBuild(build_ext):
                     pass
 
         else:
-
             # Single config generators are handled "normally"
             single_config = any(x in cmake_generator for x in {"NMake", "Ninja"})
 
@@ -105,13 +102,9 @@ class CMakeBuild(build_ext):
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
         # across all generators.
         if "CMAKE_BUILD_PARALLEL_LEVEL" not in os.environ:
-            # self.parallel is a Python 3 only way to set parallel jobs by hand
-            # using -j in the build_ext call, not supported by pip or PyPA-build.
-            if hasattr(self, "parallel") and self.parallel:
-                # CMake 3.12+ only.
-                build_args += [f"-j{self.parallel}"]
+            build_args += [f"-j"]
 
-        build_temp = Path(self.build_temp) / ext.name
+        build_temp = Path(ext.sourcedir) / "build" / ext.name
         if not build_temp.exists():
             build_temp.mkdir(parents=True)
 
@@ -119,7 +112,9 @@ class CMakeBuild(build_ext):
         # using `python -m build`, we actually have a copy of everything made and pushed
         # into a venv isolation area
         subprocess.run(
-            ["cmake", "-DPYBIND=True", ext.sourcedir] + cmake_args, cwd=build_temp, check=True
+            ["cmake", "-DPYBIND=True", ext.sourcedir] + cmake_args,
+            cwd=build_temp,
+            check=True,
         )
 
         subprocess.run(
@@ -138,20 +133,20 @@ class InstallCMakeLibs(install_lib):
         self.skip_build = True
 
         # we only need to move the windows build output
-        windows_build_output_dir = Path('.') / 'x64' / 'Release'
+        windows_build_output_dir = Path(".") / "x64" / "Release"
 
         if windows_build_output_dir.exists():
             libs = [
-                os.path.join(windows_build_output_dir, _lib) for _lib in
-                os.listdir(windows_build_output_dir) if
-                os.path.isfile(os.path.join(windows_build_output_dir, _lib)) and
-                os.path.splitext(_lib)[1] in [".dll", '.lib', '.pyd', '.exp']
+                os.path.join(windows_build_output_dir, _lib)
+                for _lib in os.listdir(windows_build_output_dir)
+                if os.path.isfile(os.path.join(windows_build_output_dir, _lib))
+                and os.path.splitext(_lib)[1] in [".dll", ".lib", ".pyd", ".exp"]
             ]
 
             for lib in libs:
                 shutil.move(
                     lib,
-                    os.path.join(self.build_dir, 'diskannpy', os.path.basename(lib))
+                    os.path.join(self.build_dir, "diskannpy", os.path.basename(lib)),
                 )
 
         super().run()
@@ -159,11 +154,8 @@ class InstallCMakeLibs(install_lib):
 
 setup(
     ext_modules=[CMakeExtension("diskannpy._diskannpy", ".")],
-    cmdclass={
-        "build_ext": CMakeBuild,
-        'install_lib': InstallCMakeLibs
-    },
+    cmdclass={"build_ext": CMakeBuild, "install_lib": InstallCMakeLibs},
     zip_safe=False,
     package_dir={"diskannpy": "python/src"},
-    exclude_package_data={"diskannpy": ["diskann_bindings.cpp"]}
+    exclude_package_data={"diskannpy": ["diskann_bindings.cpp"]},
 )
