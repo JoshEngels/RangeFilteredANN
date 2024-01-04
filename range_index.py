@@ -342,6 +342,25 @@ class RangeIndex:
 
         return identifiers[top_indices], distances[top_indices]
 
+    def get_optimized_multiplier(self, filter_range):
+        inclusive_start = self.first_greater_than(filter_range[0])
+        exclusive_end = self.first_greater_than_or_equal_to(filter_range[1])
+
+        if exclusive_end - inclusive_start == 0:
+            return 0
+
+        index_key = "full"
+        for power in range(self.low_pow, self.max_pow + 1):
+            bucket_size = 2**power
+            start_bucket = inclusive_start // bucket_size
+            end_bucket = (exclusive_end - 1) // bucket_size
+            if start_bucket == end_bucket:
+                index_key = (power, start_bucket * bucket_size)
+                break
+
+        bucket_size = len(self.data) if index_key == "full" else 2 ** index_key[0]
+        return bucket_size / (exclusive_end - inclusive_start)
+
     def postfilter_query(
         self,
         query,

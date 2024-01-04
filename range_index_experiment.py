@@ -30,15 +30,26 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
     with open(output_file, "a") as f:
         f.write("filter_width,method,recall,average_time\n")
 
-    for filter_width in [0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75]:
+    for filter_width in [0.001, 0.01, 0.1]:
+    # for filter_width in [0.01]:
         run_results = defaultdict(list)
-        for q in tqdm(queries[:1000]):
-            random_filter_start = np.random.uniform(0, 1 - filter_width)
-            filter_range = (random_filter_start, random_filter_start + filter_width)
+        multipliers = []
+        for q in tqdm(queries[:100]):
+
+            # Filter to the "easy" queries
+            while True:
+                random_filter_start = np.random.uniform(0, 1 - filter_width)
+                filter_range = (random_filter_start, random_filter_start + filter_width)
+                multiplier = index.get_optimized_multiplier(filter_range)
+                if multiplier < 4:
+                    break
+
+            multipliers.append(index.get_optimized_multiplier(filter_range))
 
             start = time.time()
             gt = index.prefilter_query(q, top_k=top_k, filter_range=filter_range)
-            run_results["prefiltering"].append((1, time.time() - start))
+            run_results["prefiltering"].append((1, time.time() - start, multiplier))
+
 
             for query_complexity in [10, 20, 40, 80, 160, 320]:
                 start = time.time()
@@ -52,6 +63,7 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
                     (
                         len([x for x in gt[0] if x in our_result[0]]) / len(gt[0]),
                         time.time() - start,
+                        multiplier
                     )
                 )
 
@@ -71,6 +83,7 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
                         (
                             len([x for x in gt[0] if x in our_result[0]]) / len(gt[0]),
                             time.time() - start,
+                            multiplier
                         )
                     )
 
@@ -93,11 +106,20 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
                                 len([x for x in gt[0] if x in postfilter_result[0]])
                                 / len(gt[0]),
                                 time.time() - start,
+                                multiplier
                             )
                         )
 
+        # Create histogram from multipliers variable:
+        # import matplotlib.pyplot as plt
+        # plt.hist(multipliers)
+        # plt.savefig(f"figs/{dataset_name}_{filter_width}_multipliers.png")
+        # plt.clf()
+        print(np.percentile(multipliers, 50))
+
         with open(output_file, "a") as f:
-            for name, zipped_recalls_times in run_results.items():
-                recalls = [r for r, _ in zipped_recalls_times]
-                times = [t for _, t in zipped_recalls_times]
+            for name, zipped_recalls_times_multipliers in run_results.items():
+                recalls = [r for r, _, _ in zipped_recalls_times_multipliers]
+                times = [t for _, t, _ in zipped_recalls_times_multipliers]
+                multipliers = [m for _, _, m in zipped_recalls_times_multipliers]                
                 f.write(f"{filter_width},{name},{np.mean(recalls)},{np.mean(times)}\n")
