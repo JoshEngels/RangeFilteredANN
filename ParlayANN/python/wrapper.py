@@ -247,3 +247,23 @@ def prefilter_index_constructor(metric, dtype):
             return PrefilterIndexFloatMips
         else:
             raise Exception('Invalid data type ' + dtype)
+        
+def postfilter_vamana_constructor(metric, dtype):
+    if metric == 'Euclidian':
+        if dtype == 'uint8':
+            return PostfilterVamanaIndexUint8Euclidian
+        elif dtype == 'int8':
+            return PostfilterVamanaIndexInt8Euclidian
+        elif dtype == 'float':
+            return PostfilterVamanaIndexFloatEuclidian
+        else:
+            raise Exception('Invalid data type ' + dtype)
+    elif metric == 'mips':
+        if dtype == 'uint8':
+            return PostfilterVamanaIndexUint8Mips
+        elif dtype == 'int8':
+            return PostfilterVamanaIndexInt8Mips
+        elif dtype == 'float':
+            return PostfilterVamanaIndexFloatMips
+        else:
+            raise Exception('Invalid data type ' + dtype)

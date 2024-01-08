@@ -37,6 +37,10 @@ namespace py = pybind11;
 using NeighborsAndDistances =
    std::pair<py::array_t<unsigned int>, py::array_t<float>>;
 
+QueryParams default_query_params = QueryParams(20, 100, 1.35, 10'000'000, 128);
+
+BuildParams default_build_params = BuildParams(64, 500, 1.175);
+
 template <typename T, typename Point, class PR = PointRange<T, Point>, typename FilterType = float_t>
 struct PostfilterVamanaIndex {
     using pid = std::pair<index_type, float>;
@@ -49,15 +53,15 @@ struct PostfilterVamanaIndex {
 
     std::pair<FilterType, FilterType> range;
 
-    PostfilterVamanaIndex(std::unique_ptr<PR>&& points, parlay::sequence<FilterType> filter_values, BuildParams BP = BuildParams(64, 500, 1.175), std::string& cache_path = "index_cache/")
+    PostfilterVamanaIndex(std::unique_ptr<PR>&& points, parlay::sequence<FilterType> filter_values, BuildParams BP = default_build_params, std::string& cache_path = "index_cache/postfilter_vamana/")
         : pr(std::move(points)), filter_values(filter_values), BP(BP) {
         
     if (cache_path != "" &&
         std::filesystem::exists(this->graph_filename(cache_path))) {
-      // std::cout << "Loading graph" << std::endl;
+      std::cout << "Loading graph from " << this->graph_filename(cache_path) << std::endl;
 
       std::string filename = this->graph_filename(cache_path);
-      this->index_graph = Graph<index_type>(filename.data());
+      this->G = Graph<index_type>(filename.data());
     } else {
       // std::cout << "Building graph" << std::endl;
       // this->start_point = indices[0];
@@ -67,8 +71,8 @@ struct PostfilterVamanaIndex {
       // std::cout << "This filter has " << indices.size() << " points" <<
       // std::endl;
 
-      this->index_graph = Graph<index_type>(BP.R, points.size());
-      I.build_index(this->index_graph, points, BuildStats);
+      this->G = Graph<index_type>(BP.R, points.size());
+      I.build_index(this->G, points, BuildStats);
 
       if (cache_path != "") {
         this->save_graph(cache_path);
@@ -113,12 +117,12 @@ struct PostfilterVamanaIndex {
 
     void save_graph(std::string filename_prefix) {
         std::string filename = this->graph_filename(filename_prefix);
-        this->index_graph.save(filename.data());
+        this->G.save(filename.data());
     }
 
     
-    parlay::sequence<pid> query(Point& q, std::pair<FilterType, FilterType> filter, QueryParams& QP = QueryParams(20, 100, 1.35, 10'000'000, 128)) {
-        auto [pairElts, dist_cmps] = beam_search<Point, PR, index_type>(q, this->index_graph, this->pr, 0, QP);
+    parlay::sequence<pid> query(Point& q, std::pair<FilterType, FilterType> filter, QueryParams& QP = default_query_params) {
+        auto [pairElts, dist_cmps] = beam_search<Point, PR, index_type>(q, this->G, *(this->pr), 0, QP);
         // auto [frontier, visited] = pairElts;
         auto frontier = pairElts.first;
 
@@ -150,7 +154,7 @@ struct PostfilterVamanaIndex {
         py::array_t<float> dists({num_queries, knn});
 
         parlay::parallel_for(0, num_queries, [&](size_t i) {
-            Point q = Point(queries.data(i));
+            Point q = Point(queries.data(i), pr->dimension(), pr->aligned_dimension(), i);
             auto frontier = this->query(q, filters[i]);
 
             for (auto j = 0; j < knn; j++) {

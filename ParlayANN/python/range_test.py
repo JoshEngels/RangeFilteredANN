@@ -91,6 +91,15 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
     index_build_time = index_build_end - index_build_start
     print(f"index build time: {index_build_time:.3f}s")
 
+    postfilter_constructor = wp.postfilter_vamana_constructor(metric, 'float')
+    print("building postfilter vamana")
+    postfilter_build_start = time.time()
+    postfilter = postfilter_constructor(data, filter_values)
+    postfilter_build_end = time.time()
+    postfilter_build_time = postfilter_build_end - postfilter_build_start
+    print(f"postfilter build time: {postfilter_build_time:.3f}s")
+
+
     # run experiment
     top_k = 10
     output_file = f"results/{dataset_name}_experiment.csv"
