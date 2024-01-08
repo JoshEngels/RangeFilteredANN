@@ -94,7 +94,8 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
     postfilter_constructor = wp.postfilter_vamana_constructor(metric, 'float')
     print("building postfilter vamana")
     postfilter_build_start = time.time()
-    postfilter = postfilter_constructor(data, filter_values)
+    build_params = wp.BuildParams(64, 500, 1.35)
+    postfilter = postfilter_constructor(data, filter_values, build_params, f"index_cache/postfilter_vamana/{dataset_name}_")
     postfilter_build_end = time.time()
     postfilter_build_time = postfilter_build_end - postfilter_build_start
     print(f"postfilter build time: {postfilter_build_time:.3f}s")
@@ -142,8 +143,18 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
         index_time = end - start
         print(f"index time: {index_time:.3f}s")
 
-        # print(index_results[0][:10])
-        # print(index_results[1][:10])
+        print(index_results[0][:10])
+        print(index_results[1][:10])
+
+        print("postfilter querying")
+        start = time.time()
+        postfilter_results = postfilter.batch_query(queries, filters, queries.shape[0], top_k)
+        end = time.time()
+        postfilter_time = end - start
+        print(f"postfilter time: {postfilter_time:.3f}s")
+
+        print(postfilter_results[0][:10])
+        print(postfilter_results[1][:10])
 
         RAND_QUERY = 9878
         # print(f"filter: {filters[RAND_QUERY]}")
@@ -164,19 +175,24 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
         # compute recall
         index_recall = compute_recall(prefilter_results[0], index_results[0], top_k)
         print(f"index recall: {index_recall*100:.2f}%")
+        postfilter_recall = compute_recall(prefilter_results[0], postfilter_results[0], top_k)
+        print(f"postfilter recall: {postfilter_recall*100:.2f}%")
 
         # compute average time
         index_average_time = index_time / queries.shape[0]
         prefilter_average_time = prefiltering_time / queries.shape[0]
+        postfilter_average_time = postfilter_time / queries.shape[0]
 
         # compute qps
         index_qps = queries.shape[0] / index_time
         prefilter_qps = queries.shape[0] / prefiltering_time
+        postfilter_qps = queries.shape[0] / postfilter_time
 
         # write results
         with open(output_file, "a") as f:
             f.write(f"{filter_width},index,{index_recall},{index_average_time},{index_qps},{THREADS}\n")
             f.write(f"{filter_width},prefilter,{index_recall},{prefilter_average_time},{prefilter_qps},{THREADS}\n")
+            f.write(f"{filter_width},postfilter,{postfilter_recall},{postfilter_average_time},{postfilter_qps},{THREADS}\n")
 
 
 

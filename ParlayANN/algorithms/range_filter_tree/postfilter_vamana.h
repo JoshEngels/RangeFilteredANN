@@ -53,7 +53,7 @@ struct PostfilterVamanaIndex {
 
     std::pair<FilterType, FilterType> range;
 
-    PostfilterVamanaIndex(std::unique_ptr<PR>&& points, parlay::sequence<FilterType> filter_values, BuildParams BP = default_build_params, std::string& cache_path = "index_cache/postfilter_vamana/")
+    PostfilterVamanaIndex(std::unique_ptr<PR>&& points, parlay::sequence<FilterType> filter_values, BuildParams BP = default_build_params, std::string cache_path = "index_cache/postfilter_vamana/")
         : pr(std::move(points)), filter_values(filter_values), BP(BP) {
         
     if (cache_path != "" &&
@@ -66,23 +66,23 @@ struct PostfilterVamanaIndex {
       // std::cout << "Building graph" << std::endl;
       // this->start_point = indices[0];
       knn_index<Point, PR, index_type> I(BP);
-      stats<index_type> BuildStats(this->points.size());
+      stats<index_type> BuildStats(this->pr->size());
 
       // std::cout << "This filter has " << indices.size() << " points" <<
       // std::endl;
 
-      this->G = Graph<index_type>(BP.R, points.size());
-      I.build_index(this->G, points, BuildStats);
+      this->G = Graph<index_type>(BP.R, pr->size());
+      I.build_index(this->G, *pr, BuildStats);
 
       if (cache_path != "") {
         this->save_graph(cache_path);
+        std::cout << "Graph built, saved to " << graph_filename(cache_path) << std::endl;
       }
     }
 
-    std::cout << "Graph built, saved to " << graph_filename(cache_path) << std::endl;
     }
 
-    PostfilterVamanaIndex(py::array_t<T> points, py::array_t<FilterType> filter_values) {
+    PostfilterVamanaIndex(py::array_t<T> points, py::array_t<FilterType> filter_values, BuildParams BP = default_build_params, std::string cache_path = "index_cache/postfilter_vamana/") {
         py::buffer_info points_buf = points.request();
         if (points_buf.ndim != 2) {
             throw std::runtime_error("points numpy array must be 2-dimensional");
@@ -108,15 +108,16 @@ struct PostfilterVamanaIndex {
 
         auto tmp_filter_values = parlay::sequence<FilterType>(filter_values_data, filter_values_data + n);
 
-
+        *this = PostfilterVamanaIndex(std::move(tmp_points), std::move(tmp_filter_values), BP, cache_path);
     }
 
-    std::string graph_filename(std::string& cache_path) {
+    std::string graph_filename(std::string cache_path) {
         return cache_path + "vamana_" + std::to_string(BP.L) + "_" + std::to_string(BP.R) + "_" + std::to_string(BP.alpha) + "_" + std::to_string(range.first) + "_" + std::to_string(range.second) + ".bin";
     }
 
     void save_graph(std::string filename_prefix) {
         std::string filename = this->graph_filename(filename_prefix);
+        
         this->G.save(filename.data());
     }
 

@@ -187,6 +187,8 @@ template <typename T, typename Point> inline void add_variant(py::module_ &m, co
 
     py::class_<PostfilterVamanaIndex<T, Point>>(m, ("PostfilterVamanaIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>(), "points"_a, "filters"_a)
+    .def(py::init<py::array_t<T>,py::array_t<float_t>, BuildParams>(), "points"_a, "filters"_a, "BP"_a)
+    .def(py::init<py::array_t<T>,py::array_t<float_t>, BuildParams, std::string>(), "points"_a, "filters"_a, "BP"_a, "cache_path"_a)
     .def("batch_query", &PostfilterVamanaIndex<T, Point>::batch_query, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a);
 
 }
