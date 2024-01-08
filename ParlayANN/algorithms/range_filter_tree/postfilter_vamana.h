@@ -150,13 +150,14 @@ struct PostfilterVamanaIndex {
     NeighborsAndDistances batch_query(py::array_t<T, py::array::c_style | py::array::forcecast>& queries,
     const std::vector<std::pair<FilterType, FilterType>>& filters,
     uint64_t num_queries,
-    uint64_t knn) {
+    uint64_t knn,
+    QueryParams QP = default_query_params) {
         py::array_t<unsigned int> ids({num_queries, knn});
         py::array_t<float> dists({num_queries, knn});
 
         parlay::parallel_for(0, num_queries, [&](size_t i) {
             Point q = Point(queries.data(i), pr->dimension(), pr->aligned_dimension(), i);
-            auto frontier = this->query(q, filters[i]);
+            auto frontier = this->query(q, filters[i], QP);
 
             for (auto j = 0; j < knn; j++) {
                 if (j < frontier.size()) {
