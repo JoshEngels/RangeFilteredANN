@@ -399,7 +399,7 @@ struct RangeFilterTreeIndex {
         n = this->spatial_index->points->size();
 
         // get the min and max filter values
-        range = std::make_pair(this->spatial_index->filter_values_sorted[0], this->spatial_index->filter_values_sorted[n - 1]);
+        range = this->spatial_index->range;
 
         // get the median filter value
         // median = this->spatial_index->median;
@@ -515,7 +515,7 @@ struct RangeFilterTreeIndex {
 
     /* not really needed but just to highlight it */
     inline parlay::sequence<pid> self_query(const Point& query, const std::pair<FilterType, FilterType>& range, uint64_t knn) {
-        return spatial_index->query(query, range, knn);
+        return spatial_index->query(query, range);
     }
 
     parlay::sequence<pid> orig_serial_query(const Point& query, const std::pair<FilterType, FilterType>& range, uint64_t knn) {

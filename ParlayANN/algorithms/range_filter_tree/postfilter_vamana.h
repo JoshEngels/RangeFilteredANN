@@ -45,7 +45,7 @@ template <typename T, typename Point, class PR = PointRange<T, Point>, typename 
 struct PostfilterVamanaIndex {
     using pid = std::pair<index_type, float>;
 
-    std::unique_ptr<PR> pr;
+    std::unique_ptr<PR> points;
     Graph<index_type> G;
     BuildParams BP;
 
@@ -53,32 +53,43 @@ struct PostfilterVamanaIndex {
 
     std::pair<FilterType, FilterType> range;
 
+    parlay::sequence<index_type> indices;
+
     PostfilterVamanaIndex(std::unique_ptr<PR>&& points, parlay::sequence<FilterType> filter_values, BuildParams BP = default_build_params, std::string cache_path = "index_cache/postfilter_vamana/")
-        : pr(std::move(points)), filter_values(filter_values), BP(BP) {
+        : points(std::move(points)), filter_values(filter_values), BP(BP) {
         
-    if (cache_path != "" &&
-        std::filesystem::exists(this->graph_filename(cache_path))) {
-      std::cout << "Loading graph from " << this->graph_filename(cache_path) << std::endl;
+        this->range = std::make_pair(*(std::min_element(filter_values.begin(), filter_values.end())), *(std::max_element(filter_values.begin(), filter_values.end())));
 
-      std::string filename = this->graph_filename(cache_path);
-      this->G = Graph<index_type>(filename.data());
-    } else {
-      // std::cout << "Building graph" << std::endl;
-      // this->start_point = indices[0];
-      knn_index<Point, PR, index_type> I(BP);
-      stats<index_type> BuildStats(this->pr->size());
+        if (cache_path != "" &&
+            std::filesystem::exists(this->graph_filename(cache_path))) {
+            std::cout << "Loading graph from " << this->graph_filename(cache_path) << std::endl;
 
-      // std::cout << "This filter has " << indices.size() << " points" <<
-      // std::endl;
+            std::string filename = this->graph_filename(cache_path);
+            this->G = Graph<index_type>(filename.data());
+        } else {
+            // std::cout << "Building graph" << std::endl;
+            // this->start_point = indices[0];
+            knn_index<Point, PR, index_type> I(BP);
+            stats<index_type> BuildStats(this->points->size());
 
-      this->G = Graph<index_type>(BP.R, pr->size());
-      I.build_index(this->G, *pr, BuildStats);
+            // std::cout << "This filter has " << indices.size() << " points" <<
+            // std::endl;
 
-      if (cache_path != "") {
-        this->save_graph(cache_path);
-        std::cout << "Graph built, saved to " << graph_filename(cache_path) << std::endl;
-      }
-    }
+            this->G = Graph<index_type>(BP.R, this->points->size());
+            I.build_index(this->G, *(this->points), BuildStats);
+
+            if (cache_path != "") {
+                this->save_graph(cache_path);
+                std::cout << "Graph built, saved to " << graph_filename(cache_path) << std::endl;
+            }
+        }
+
+
+        if constexpr (std::is_same<PR, PointRange<T, Point>>::value) {
+            this->indices = parlay::tabulate(this->points->size(), [&](index_type i) { return i; });
+        } else {
+            this->indices = parlay::tabulate(this->points->size(), [&](index_type i) { return this->points->subset[i]; });
+        }
 
     }
 
@@ -112,7 +123,7 @@ struct PostfilterVamanaIndex {
     }
 
     std::string graph_filename(std::string cache_path) {
-        return cache_path + "vamana_" + std::to_string(BP.L) + "_" + std::to_string(BP.R) + "_" + std::to_string(BP.alpha) + "_" + std::to_string(range.first) + "_" + std::to_string(range.second) + ".bin";
+        return cache_path + "vamana_" + std::to_string(BP.L) + "_" + std::to_string(BP.R) + "_" + std::to_string(BP.alpha) + "_" + std::to_string(range.first) + "_" + std::to_string(range.second) + "_" + std::to_string(points->size()) + ".bin";
     }
 
     void save_graph(std::string filename_prefix) {
@@ -122,8 +133,8 @@ struct PostfilterVamanaIndex {
     }
 
     
-    parlay::sequence<pid> query(Point& q, std::pair<FilterType, FilterType> filter, QueryParams& QP = default_query_params) {
-        auto [pairElts, dist_cmps] = beam_search<Point, PR, index_type>(q, this->G, *(this->pr), 0, QP);
+    parlay::sequence<pid> query(const Point& q, const std::pair<FilterType, FilterType> filter, QueryParams QP = default_query_params) {
+        auto [pairElts, dist_cmps] = beam_search<Point, PR, index_type>(q, this->G, *(this->points), 0, QP);
         // auto [frontier, visited] = pairElts;
         auto frontier = pairElts.first;
 
@@ -137,7 +148,7 @@ struct PostfilterVamanaIndex {
           frontier = parlay::map_maybe(frontier, [&](pid& p) {
             FilterType filter_value = filter_values[p.first];
             if (filter_value >= filter.first && filter_value <= filter.second) {
-                return std::make_pair(pr->subset[p.first], p.second);
+                return std::optional<pid>(std::make_pair(points->subset[p.first], p.second));
             } else {
                 return std::optional<pid>();
             }
@@ -156,7 +167,7 @@ struct PostfilterVamanaIndex {
         py::array_t<float> dists({num_queries, knn});
 
         parlay::parallel_for(0, num_queries, [&](size_t i) {
-            Point q = Point(queries.data(i), pr->dimension(), pr->aligned_dimension(), i);
+            Point q = Point(queries.data(i), points->dimension(), points->aligned_dimension(), i);
             auto frontier = this->query(q, filters[i], QP);
 
             for (auto j = 0; j < knn; j++) {

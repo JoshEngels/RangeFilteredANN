@@ -100,6 +100,14 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
     postfilter_build_time = postfilter_build_end - postfilter_build_start
     print(f"postfilter build time: {postfilter_build_time:.3f}s")
 
+    vamana_tree_constructor = wp.vamana_range_filter_tree_constructor(metric, 'float')
+    print("building vamana tree")
+    vamana_tree_build_start = time.time()
+    vamana_tree = vamana_tree_constructor(data, filter_values, 1_000)
+    vamana_tree_build_end = time.time()
+    vamana_tree_build_time = vamana_tree_build_end - vamana_tree_build_start
+    print(f"vamana tree build time: {vamana_tree_build_time:.3f}s")
+
 
     # run experiment
     top_k = 10
@@ -147,14 +155,23 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
         print(index_results[1][:10])
 
         print("postfilter querying")
+        query_params = wp.QueryParams(20, 100, 1.35, 10_000_000, 128)
         start = time.time()
-        postfilter_results = postfilter.batch_query(queries, filters, queries.shape[0], top_k)
+        postfilter_results = postfilter.batch_query(queries, filters, queries.shape[0], top_k, )
         end = time.time()
         postfilter_time = end - start
         print(f"postfilter time: {postfilter_time:.3f}s")
 
         print(postfilter_results[0][:10])
         print(postfilter_results[1][:10])
+
+        print("vamana tree querying")
+        start = time.time()
+        vamana_tree_results = vamana_tree.batch_filter_search(queries, filters, queries.shape[0], top_k)
+        end = time.time()
+        vamana_tree_time = end - start
+        print(f"vamana tree time: {vamana_tree_time:.3f}s")
+
 
         RAND_QUERY = 9878
         # print(f"filter: {filters[RAND_QUERY]}")
@@ -177,6 +194,8 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
         print(f"index recall: {index_recall*100:.2f}%")
         postfilter_recall = compute_recall(prefilter_results[0], postfilter_results[0], top_k)
         print(f"postfilter recall: {postfilter_recall*100:.2f}%")
+        vamana_tree_recall = compute_recall(prefilter_results[0], vamana_tree_results[0], top_k)
+        print(f"vamana tree recall: {vamana_tree_recall*100:.2f}%")
 
         # compute average time
         index_average_time = index_time / queries.shape[0]

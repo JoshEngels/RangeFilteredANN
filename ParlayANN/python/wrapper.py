@@ -267,3 +267,23 @@ def postfilter_vamana_constructor(metric, dtype):
             return PostfilterVamanaIndexFloatMips
         else:
             raise Exception('Invalid data type ' + dtype)
+
+def vamana_range_filter_tree_constructor(metric, dtype):
+    if metric == 'Euclidian':
+        if dtype == 'uint8':
+            return VamanaRangeFilterTreeIndexUint8Euclidian
+        elif dtype == 'int8':
+            return VamanaRangeFilterTreeIndexInt8Euclidian
+        elif dtype == 'float':
+            return VamanaRangeFilterTreeIndexFloatEuclidian
+        else:
+            raise Exception('Invalid data type ' + dtype)
+    elif metric == 'mips':
+        if dtype == 'uint8':
+            return VamanaRangeFilterTreeIndexUint8Mips
+        elif dtype == 'int8':
+            return VamanaRangeFilterTreeIndexInt8Mips
+        elif dtype == 'float':
+            return VamanaRangeFilterTreeIndexFloatMips
+        else:
+            raise Exception('Invalid data type ' + dtype)

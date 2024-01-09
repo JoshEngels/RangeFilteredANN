@@ -47,6 +47,8 @@ struct PrefilterIndex {
     parlay::sequence<FilterType> filter_values_sorted;
     parlay::sequence<index_type> filter_indices_sorted; // the indices of the points sorted by filter value
 
+    std::pair<FilterType, FilterType> range;
+
     PrefilterIndex(std::unique_ptr<PR>&& points, parlay::sequence<FilterType> filter_values) :
         points(std::move(points)),
         filter_values(std::move(filter_values)) {
@@ -70,6 +72,8 @@ struct PrefilterIndex {
         parlay::parallel_for(0, n, [&](auto i) {
             filter_values_sorted[i] = this->filter_values[filter_indices_sorted[i]];
         });
+
+        range = std::make_pair(filter_values_sorted[0], filter_values_sorted[n - 1]);
     } 
 
     PrefilterIndex(py::array_t<T> points, py::array_t<FilterType> filter_values) {
@@ -111,6 +115,8 @@ struct PrefilterIndex {
         parlay::parallel_for(0, n, [&](auto i) {
             filter_values_sorted[i] = this->filter_values[filter_indices_sorted[i]];
         });
+
+        range = std::make_pair(filter_values_sorted[0], filter_values_sorted[n - 1]);
     }
 
     NeighborsAndDistances batch_query(py::array_t<T, py::array::c_style | py::array::forcecast>& queries,
@@ -180,7 +186,7 @@ struct PrefilterIndex {
     }
 
     /* processes a single query */
-    parlay::sequence<pid> query(Point q, std::pair<FilterType, FilterType> filter, uint64_t knn) {
+    parlay::sequence<pid> query(Point q, std::pair<FilterType, FilterType> filter, uint64_t knn = 10) {
         size_t start;
 
         size_t l, r, mid;

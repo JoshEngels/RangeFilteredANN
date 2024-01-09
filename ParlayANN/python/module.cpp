@@ -20,6 +20,8 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+// #define PYBIND11_DETAILED_ERROR_MESSAGES
+
 #include <string>
 
 #include <pybind11/pybind11.h>
@@ -190,7 +192,13 @@ template <typename T, typename Point> inline void add_variant(py::module_ &m, co
     .def(py::init<py::array_t<T>,py::array_t<float_t>, BuildParams>(), "points"_a, "filters"_a, "BP"_a)
     .def(py::init<py::array_t<T>,py::array_t<float_t>, BuildParams, std::string>(), "points"_a, "filters"_a, "BP"_a, "cache_path"_a)
     // .def("batch_query", &PostfilterVamanaIndex<T, Point>::batch_query, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a)
-    .def("batch_query", &PostfilterVamanaIndex<T, Point>::batch_query, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a, "QP"_a = default_query_params);
+    .def("batch_query", &PostfilterVamanaIndex<T, Point>::batch_query, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a, "QP"_a);
+
+    py::class_<RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>>(m, ("VamanaRangeFilterTreeIndex" + variant.agnostic_name).c_str())
+    .def(py::init<py::array_t<T>,py::array_t<float_t>>())
+    .def(py::init<py::array_t<T>,py::array_t<float_t>, int32_t>())
+    .def("batch_filter_search", &RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>::batch_filter_search, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a);
+    
 
 }
 
