@@ -30,15 +30,13 @@
 
 #include "python/builder.cpp"
 #include "python/vamana_index.cpp"
-#include "algorithms/IVF/IVF.h"
 #include "algorithms/IVF/posting_list.h"
 #include "algorithms/utils/filters.h"
 #include "algorithms/utils/types.h"
-// #include "../algorithms/stitched_vamana/stitched_vamana.h"
 #include "filtered_dataset.h"
-#include "algorithms/range_filter_tree/range_filter_tree.h"
-#include "algorithms/range_filter_tree/prefiltering.h"
-#include "algorithms/range_filter_tree/postfilter_vamana.h"
+#include "range_filter_tree.h"
+#include "prefiltering.h"
+#include "postfilter_vamana.h"
 
 PYBIND11_MAKE_OPAQUE(std::vector<uint32_t>);
 PYBIND11_MAKE_OPAQUE(std::vector<float>);

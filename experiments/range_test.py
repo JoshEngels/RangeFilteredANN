@@ -1,5 +1,4 @@
 import os
-import _ParlayANNpy as pann
 import numpy as np
 import wrapper as wp
 import time
@@ -41,7 +40,7 @@ def compute_recall(gt_neighbors, results, top_k):
     return recall / len(gt_neighbors) # average recall per query
 
 
-data_dir = "/ssd1/anndata/ann-benchmarks/"
+data_dir = "/data/scratch/jae/ann_benchmarks_datasets/"
 
 if len(sys.argv) > 1:
     THREADS = int(sys.argv[1])
@@ -54,7 +53,7 @@ FILTER_WIDTHS = [0.01, 0.1, 0.5]
 
 for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
     data_path = os.path.join(data_dir, f"{dataset_name}.hdf5")
-    filter_path = os.path.join(data_dir, f"{dataset_name}_filters.npy")
+    filter_path = os.path.join(data_dir, f"{dataset_name}_filter_values.npy")
 
     data = parse_ann_benchmarks_hdf5(data_path)[0]
     filter_values = np.load(filter_path)

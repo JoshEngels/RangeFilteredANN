@@ -1,20 +1,11 @@
 #pragma once
 
-#include "parlay/internal/binary_search.h"
-#include "parlay/internal/get_time.h"
-#include "parlay/monoid.h"
 #include "parlay/parallel.h"
 #include "parlay/primitives.h"
-#include "parlay/random.h"
 #include "parlay/sequence.h"
 
-#include "algorithms/utils/euclidian_point.h"
-#include "algorithms/utils/filteredBeamSearch.h"
-#include "algorithms/utils/filters.h"
 #include "algorithms/utils/graph.h"
-#include "algorithms/utils/mips_point.h"
 #include "algorithms/utils/point_range.h"
-#include "algorithms/utils/threadlocal.h"
 #include "algorithms/utils/types.h"
 
 #include "algorithms/vamana/index.h"
@@ -23,12 +14,9 @@
 #include <filesystem>
 #include <limits>
 #include <type_traits>
-#include <unordered_map>
-#include <variant>
 #include <vector>
 
 #include "pybind11/numpy.h"
-#include "pybind11/stl.h"
 
 #include "prefiltering.h"
 

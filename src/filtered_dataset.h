@@ -4,19 +4,16 @@
 
 #include "algorithms/utils/euclidian_point.h"
 #include "algorithms/utils/filters.h"
-#include "algorithms/utils/mips_point.h"
 #include "algorithms/utils/point_range.h"
 
 #include "parlay/sequence.h"
 
-#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
 #include <vector>
 
 #include "pybind11/numpy.h"
-#include "pybind11/stl.h"
 
 namespace py = pybind11;
 
@@ -120,7 +117,7 @@ struct FilteredDataset {
   void write_labels(std::string filename) {
     auto outfile = fopen(filename.data(), "w");
     for (size_t i = 0; i < points.size(); i++) {
-      fprintf(outfile, "%d ", points[i].id());
+      fprintf(outfile, "%ld ", points[i].id());
     }
   }
 };

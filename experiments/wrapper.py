@@ -1,4 +1,4 @@
-from _ParlayANNpy import *
+from window_ann import *
 
 def build_vamana_index(metric, dtype, data_dir, index_dir, R, L, alpha):
     if metric == 'Euclidian':
