@@ -7,6 +7,11 @@ import sys
 
 import h5py
 
+
+# Ensure index_cache/postfiler_vamana exists
+os.makedirs("index_cache/postfilter_vamana", exist_ok=True)
+os.makedirs("results", exist_ok=True)
+
 def parse_ann_benchmarks_hdf5(data_path):
     with h5py.File(data_path, "r") as file:
         gt_neighbors = np.array(file["neighbors"])
@@ -45,7 +50,7 @@ data_dir = "/data/scratch/jae/ann_benchmarks_datasets/"
 if len(sys.argv) > 1:
     THREADS = int(sys.argv[1])
 else:
-    THREADS = 96
+    THREADS = 80
 os.environ["PARLAY_NUM_THREADS"] = str(THREADS)
 
 # FILTER_WIDTHS = [0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5]
@@ -112,9 +117,6 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
     top_k = 10
     output_file = f"results/{dataset_name}_experiment.csv"
 
-    # with open(output_file, "a") as f:
-    #     f.write("filter_width,method,recall,average_time,qps,threads\n")
-
     # only write header if file doesn't exist
     if not os.path.exists(output_file):
         with open(output_file, "a") as f:
@@ -128,9 +130,6 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
 
         filters = np.array([(x - filter_width / 2, x + filter_width / 2) for x in raw_filters])
 
-        # filters = np.array([((x - filter_width / 2) * data.shape[0], (x + filter_width / 2) * data.shape[0]) for x in raw_filters])
-
-        
 
         print("prefilter querying")
         prefiltering_start = time.time()
@@ -145,18 +144,18 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
 
         print("index querying")
         start = time.time()
-        index_results = index.batch_filter_search(queries, filters, queries.shape[0], top_k)
+        range_prefilter_results = index.batch_filter_search(queries, filters, queries.shape[0], top_k)
         end = time.time()
-        index_time = end - start
-        print(f"index time: {index_time:.3f}s")
+        range_prefilter_time = end - start
+        print(f"index time: {range_prefilter_time:.3f}s")
 
-        print(index_results[0][:10])
-        print(index_results[1][:10])
+        print(range_prefilter_results[0][:10])
+        print(range_prefilter_results[1][:10])
 
         print("postfilter querying")
         query_params = wp.QueryParams(20, 100, 1.35, 10_000_000, 128)
         start = time.time()
-        postfilter_results = postfilter.batch_query(queries, filters, queries.shape[0], top_k, )
+        postfilter_results = postfilter.batch_query(queries, filters, queries.shape[0], top_k, query_params)
         end = time.time()
         postfilter_time = end - start
         print(f"postfilter time: {postfilter_time:.3f}s")
@@ -180,7 +179,7 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
         max_distance_out_of_range = []
         for i in range(len(queries)):
             filter_range = filters[i]
-            knn_filter_values = [filter_values[x] for x in index_results[0][i] if x != -1]
+            knn_filter_values = [filter_values[x] for x in range_prefilter_results[0][i] if x != -1]
             min_filter_value = min(knn_filter_values)
             max_filter_value = max(knn_filter_values)
 
@@ -189,29 +188,32 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
         print(f"farthest out of range prefilter result: {max(max_distance_out_of_range)}")
 
         # compute recall
-        index_recall = compute_recall(prefilter_results[0], index_results[0], top_k)
-        print(f"index recall: {index_recall*100:.2f}%")
+        range_prefilter_recall = compute_recall(prefilter_results[0], range_prefilter_results[0], top_k)
+        print(f"range prefiltering recall: {range_prefilter_recall*100:.2f}%")
         postfilter_recall = compute_recall(prefilter_results[0], postfilter_results[0], top_k)
         print(f"postfilter recall: {postfilter_recall*100:.2f}%")
         vamana_tree_recall = compute_recall(prefilter_results[0], vamana_tree_results[0], top_k)
         print(f"vamana tree recall: {vamana_tree_recall*100:.2f}%")
 
         # compute average time
-        index_average_time = index_time / queries.shape[0]
-        prefilter_average_time = prefiltering_time / queries.shape[0]
+        vamana_tree_average_time = vamana_tree_time / queries.shape[0]
+        range_prefilter_average_time = range_prefilter_time / queries.shape[0]
         postfilter_average_time = postfilter_time / queries.shape[0]
+        prefiltering_average_time = prefiltering_time / queries.shape[0]
 
         # compute qps
-        index_qps = queries.shape[0] / index_time
+        vamana_tree_qps = queries.shape[0] / vamana_tree_time
         prefilter_qps = queries.shape[0] / prefiltering_time
+        range_prefilter_qps = queries.shape[0] / range_prefilter_time
         postfilter_qps = queries.shape[0] / postfilter_time
+
 
         # write results
         with open(output_file, "a") as f:
-            f.write(f"{filter_width},index,{index_recall},{index_average_time},{index_qps},{THREADS}\n")
-            f.write(f"{filter_width},prefilter,{index_recall},{prefilter_average_time},{prefilter_qps},{THREADS}\n")
+            f.write(f"{filter_width},vamana tree,{vamana_tree_recall},{vamana_tree_average_time},{vamana_tree_qps},{THREADS}\n")
             f.write(f"{filter_width},postfilter,{postfilter_recall},{postfilter_average_time},{postfilter_qps},{THREADS}\n")
-
+            f.write(f"{filter_width},range prefilter,{range_prefilter_recall},{range_prefilter_average_time},{range_prefilter_qps},{THREADS}\n")
+            f.write(f"{filter_width},prefilter,{1.0},{prefiltering_average_time},{prefilter_qps},{THREADS}\n")
 
 
 

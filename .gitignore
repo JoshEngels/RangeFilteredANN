@@ -10,3 +10,4 @@ build
 compile_commands.json
 window_ann.egg-info
 experiments/index_cache
+experiments/results
