@@ -5,3 +5,6 @@ __pycache__
 *.pdf
 *.so
 generate_datasets/temp
+build
+.cache
+compile_commands.json
