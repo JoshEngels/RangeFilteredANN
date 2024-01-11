@@ -9,3 +9,4 @@ build
 .cache
 compile_commands.json
 window_ann.egg-info
+experiments/index_cache
