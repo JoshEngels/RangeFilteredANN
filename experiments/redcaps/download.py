@@ -74,16 +74,17 @@ if __name__ == "__main__":
             starting_id = i
             break
 
-    dont_download = True
 
     # Iterate through annotation files and download images
     for annotation_file in sorted(os.listdir(annotations_folder))[starting_id:]:
         ann_file_path = os.path.join(annotations_folder, annotation_file)
         print(f"Downloading images for {annotation_file}")
 
-        if not dont_download:
-            download_images(ann_file_path)
-        dont_download = False
+        download_images(ann_file_path)
+
+        if not os.path.exists(image_folder):
+            current_embedding_id += 1
+            continue
 
         print(annotation_file, current_embedding_id)
 

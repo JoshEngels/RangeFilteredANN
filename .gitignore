@@ -4,3 +4,4 @@ __pycache__
 *.png
 *.pdf
 *.so
+generate_datasets/temp

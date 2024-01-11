@@ -9,6 +9,10 @@ parser.add_argument(
     "data_filename", help="Path to the HDF5 data file from ANN benchmarks"
 )
 
+parser.add_argument(
+    "output_dir", help="Path to save the generated qu to"
+)
+
 args = parser.parse_args()
 
 data = parse_ann_benchmarks_hdf5(args.data_filename)[0]
