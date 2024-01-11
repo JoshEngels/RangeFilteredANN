@@ -120,7 +120,7 @@ struct FilteredDataset {
   void write_labels(std::string filename) {
     auto outfile = fopen(filename.data(), "w");
     for (size_t i = 0; i < points.size(); i++) {
-      fprintf(outfile, "%d ", points[i].id());
+      fprintf(outfile, "%ld ", points[i].id());
     }
   }
 };
