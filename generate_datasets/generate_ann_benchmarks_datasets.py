@@ -2,14 +2,9 @@ import numpy as np
 import h5py
 import os
 import urllib.request
-from filter_generation_utils import (
-    EXPERIMENT_FILTER_WIDTHS,
-    generate_random_query_filter_ranges,
-)
+from filter_generation_utils import generate_filters
 from pathlib import Path
-from tqdm import tqdm
 
-TOP_K = 10
 
 def parse_ann_benchmarks_hdf5(data_path):
     with h5py.File(data_path, "r") as file:
@@ -43,7 +38,7 @@ def create_dataset(dataset_name, output_dir):
 
     data, queries, gts = parse_ann_benchmarks_hdf5(file_path)
 
-    if 'angular' in request_url:
+    if "angular" in request_url:
         data = data / np.linalg.norm(data, axis=-1)[:, np.newaxis]
         queries = queries / np.linalg.norm(queries, axis=-1)[:, np.newaxis]
 
@@ -54,48 +49,14 @@ def create_dataset(dataset_name, output_dir):
 
     np.save(output_dir / f"{dataset_friendly_name}_filter_values.npy", filter_values)
 
-    all_filter_ranges = []
-    for filter_width in EXPERIMENT_FILTER_WIDTHS:
-        filter_ranges = generate_random_query_filter_ranges(
-            filter_values=filter_values,
-            target_percentage=filter_width,
-            num_queries=len(queries),
-        )
-        all_filter_ranges.append(filter_ranges)
-        np.save(
-            output_dir / f"{dataset_friendly_name}_queries_{filter_width}_ranges.npy",
-            filter_ranges,
-        )
-
-    all_gts = [[] for _ in range(len(EXPERIMENT_FILTER_WIDTHS))]
-    for query_index, query in tqdm(enumerate(queries)):
-
-        if 'angular' in request_url:
-            dot_products = query @ data.T
-            sorted_indices = np.argsort(dot_products)[::-1]
-        else:
-            distances = np.linalg.norm(query - data, axis=-1)
-            sorted_indices = np.argsort(distances)
-
-        for experiment_index in range(len(EXPERIMENT_FILTER_WIDTHS)):
-            query_filter = all_filter_ranges[experiment_index][query_index]
-            query_gt = []
-            for data_index in sorted_indices:
-                if filter_values[data_index] >= query_filter[0] and filter_values[data_index] <= query_filter[1]:
-                    query_gt.append(data_index)
-                if len(query_gt) == TOP_K:
-                    break
-
-            assert(len(query_gt) == TOP_K)
-            
-            all_gts[experiment_index].append(query_gt)
-
-    for i in range(len(EXPERIMENT_FILTER_WIDTHS)):
-        all_gts[i] = np.array(all_gts[i])
-        np.save(
-            output_dir / f"{dataset_friendly_name}_queries_{EXPERIMENT_FILTER_WIDTHS[i]}_gt.npy",
-            all_gts[i],
-        )
+    generate_filters(
+        output_dir,
+        "angular" in request_url,
+        dataset_friendly_name,
+        data,
+        queries,
+        filter_values,
+    )
 
 
 output_dir = Path("/data/parap/storage/jae/filtered_ann_datasets/")
