@@ -140,10 +140,67 @@ struct PostfilterVamanaIndex {
     this->G.save(filename.data());
   }
 
-  // Does a raw ANN query on the underlying index
+  // Does a postfiltering query on the underlying index
   parlay::sequence<pid> query(const Point &q,
                               const std::pair<FilterType, FilterType> filter,
                               QueryParams qp) {
+    size_t knn = qp.k;
+    QueryParams actual_params = {qp.beamSize,
+                                 qp.beamSize,
+                                 qp.cut,
+                                 qp.limit,
+                                 qp.degree_limit,
+                                 qp.final_beam_multiply,
+                                 qp.postfiltering_max_beam};
+    parlay::sequence<pid> frontier = {};
+    while (frontier.size() < knn && actual_params.beamSize < qp.degree_limit) {
+      frontier = this->query(q, filter, actual_params);
+      actual_params.beamSize *= 2;
+      actual_params.k *= 2;
+    }
+    size_t final_beam_size = std::min<size_t>(
+        actual_params.beamSize * qp.final_beam_multiply, qp.degree_limit);
+    actual_params.beamSize = final_beam_size;
+    actual_params.k = final_beam_size;
+    return this->query(q, filter, actual_params);
+  }
+
+  // Does a batch of doubling postfiltering queries on the underlying index
+  NeighborsAndDistances batch_search(
+      py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
+      const std::vector<std::pair<FilterType, FilterType>> &filters,
+      uint64_t num_queries, QueryParams qp = default_query_params) {
+
+    size_t knn = qp.k;
+
+    py::array_t<unsigned int> ids({num_queries, knn});
+    py::array_t<float> dists({num_queries, knn});
+
+    parlay::parallel_for(0, num_queries, [&](size_t i) {
+      Point q = Point(queries.data(i), points->dimension(),
+                      points->aligned_dimension(), i);
+
+      auto frontier = query(q, filters.at(i), qp);
+
+      for (auto j = 0; j < knn; j++) {
+        if (j < frontier.size()) {
+          ids.mutable_at(i, j) = frontier[j].first;
+          dists.mutable_at(i, j) = frontier[j].second;
+        } else {
+          ids.mutable_at(i, j) = -1;
+          dists.mutable_at(i, j) = std::numeric_limits<float>::max();
+        }
+      }
+    });
+
+    return std::make_pair(ids, dists);
+  }
+
+private:
+  // Does a raw ANN query on the underlying index
+  parlay::sequence<pid>
+  raw_query(const Point &q, const std::pair<FilterType, FilterType> filter,
+            QueryParams qp) {
     auto [pairElts, dist_cmps] =
         beam_search<Point, PR, index_type>(q, this->G, *(this->points), 0, qp);
     // auto [frontier, visited] = pairElts;
@@ -169,49 +226,5 @@ struct PostfilterVamanaIndex {
     }
 
     return frontier;
-  }
-
-  // TODO: This is very bad that these are different semantics
-  // Does a batch of doubling postfiltering queries on the underlying index
-  NeighborsAndDistances batch_query(
-      py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
-      const std::vector<std::pair<FilterType, FilterType>> &filters,
-      uint64_t num_queries, QueryParams qp = default_query_params) {
-
-    size_t knn = qp.k;
-
-    py::array_t<unsigned int> ids({num_queries, knn});
-    py::array_t<float> dists({num_queries, knn});
-
-    parlay::parallel_for(0, num_queries, [&](size_t i) {
-      QueryParams actual_params = {qp.beamSize, qp.beamSize, qp.cut, qp.limit,
-                                   qp.degree_limit, qp.final_beam_multiply, qp.postfiltering_max_beam};
-      Point q = Point(queries.data(i), points->dimension(),
-                      points->aligned_dimension(), i);
-      parlay::sequence<pid> frontier = {};
-      while (frontier.size() < knn &&
-             actual_params.beamSize < qp.degree_limit) {
-        frontier = this->query(q, filters[i], actual_params);
-        actual_params.beamSize *= 2;
-        actual_params.k *= 2;
-      }
-      size_t final_beam_size = std::min<size_t>(
-          actual_params.beamSize * qp.final_beam_multiply, qp.degree_limit);
-      actual_params.beamSize = final_beam_size;
-      actual_params.k = final_beam_size;
-      frontier = this->query(q, filters[i], actual_params);
-
-      for (auto j = 0; j < knn; j++) {
-        if (j < frontier.size()) {
-          ids.mutable_at(i, j) = frontier[j].first;
-          dists.mutable_at(i, j) = frontier[j].second;
-        } else {
-          ids.mutable_at(i, j) = -1;
-          dists.mutable_at(i, j) = std::numeric_limits<float>::max();
-        }
-      }
-    });
-
-    return std::make_pair(ids, dists);
   }
 };

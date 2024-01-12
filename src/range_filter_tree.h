@@ -31,7 +31,6 @@ PointRange<T, Point> numpy_point_range(py::array_t<T> points) {
     throw std::runtime_error("NumPy array must be 2-dimensional");
   }
 
-
   auto n = buf.shape[0];         // number of points
   auto dimension = buf.shape[1]; // dimension of each point
 
@@ -42,7 +41,8 @@ PointRange<T, Point> numpy_point_range(py::array_t<T> points) {
 
 template <typename T, typename Point,
           template <typename, typename, typename> class RangeSpatialIndex =
-              PrefilterIndex, typename FilterType = float_t>
+              PrefilterIndex,
+          typename FilterType = float_t>
 struct RangeFilterTreeIndex {
   using pid = std::pair<index_type, float>;
 
@@ -52,7 +52,6 @@ struct RangeFilterTreeIndex {
 
   using SpatialIndex = RangeSpatialIndex<T, Point, SubsetRange>;
   using SpatialIndexPtr = std::unique_ptr<SpatialIndex>;
-
 
   // This constructor just sorts the input points and turns them into a
   // structure that's easier to work with. The actual work of building the index
@@ -119,7 +118,7 @@ struct RangeFilterTreeIndex {
   }
 
   /* the bounds here are inclusive */
-  NeighborsAndDistances batch_filter_search(
+  NeighborsAndDistances batch_search(
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
       const std::vector<std::pair<FilterType, FilterType>> &filters,
       uint64_t num_queries, QueryParams qp) {
@@ -204,8 +203,7 @@ private:
                        const parlay::sequence<size_t> &decoding,
                        int32_t cutoff = 1000, bool recurse = true)
       : _sorted_index_to_original_point_id(decoding), _cutoff(cutoff),
-        _filter_values(filter_values),
-        _points(std::move(points)) {
+        _filter_values(filter_values), _points(std::move(points)) {
 
     auto n = _points->size();
 
@@ -218,26 +216,28 @@ private:
       _spatial_indices.push_back(std::vector<SpatialIndexPtr>(num_buckets));
       _starts.push_back(std::vector<size_t>(num_buckets));
       parlay::parallel_for(0, num_buckets, [&](auto bucket_id) {
-      // for (size_t bucket_id = 0; bucket_id < num_buckets; bucket_id++) {
+        // for (size_t bucket_id = 0; bucket_id < num_buckets; bucket_id++) {
         size_t start = bucket_id * current_filter_size;
         auto this_filter_size = std::min(current_filter_size, n - start);
         _starts.at(_starts.size() - 1).at(bucket_id) = start;
         parlay::sequence<int32_t> subset_of_indices = parlay::tabulate<int32_t>(
             this_filter_size, [&](auto i) { return i + start; });
         SubsetRangePtr subset_points = _points->make_subset(subset_of_indices);
-        parlay::sequence<FilterType> subset_of_filter_values = parlay::sequence<FilterType>(
-            _filter_values.begin() + start,
-            _filter_values.begin() + start + this_filter_size);
-        _spatial_indices.at(_spatial_indices.size() - 1).at(bucket_id) = std::make_unique<SpatialIndex>(std::move(subset_points), subset_of_filter_values);
+        parlay::sequence<FilterType> subset_of_filter_values =
+            parlay::sequence<FilterType>(_filter_values.begin() + start,
+                                         _filter_values.begin() + start +
+                                             this_filter_size);
+        _spatial_indices.at(_spatial_indices.size() - 1).at(bucket_id) =
+            std::make_unique<SpatialIndex>(std::move(subset_points),
+                                           subset_of_filter_values);
       });
       current_filter_size *= 2;
     }
   }
 
-
   bool check_empty(const std::pair<FilterType, FilterType> &range) {
     bool empty = range.second < _filter_values.front() ||
-           range.first > _filter_values.back();
+                 range.first > _filter_values.back();
     if (empty) {
       std::cout
           << "Query range is entirely outside the index range ("
@@ -264,14 +264,11 @@ private:
     auto inclusive_start = first_greater_than(range.first);
     auto exclusive_end = first_greater_than_or_equal_to(range.second);
 
-    // std::cout << "QUERY " << range.first << " " << range.second << std::endl;
-
     std::pair<size_t, size_t> last_range = {0, 0};
     std::vector<std::pair<size_t, size_t>> indices_to_search;
-    for (int64_t bucket_size_index = _bucket_sizes.size() - 1; bucket_size_index >= 0; bucket_size_index--) {
+    for (int64_t bucket_size_index = _bucket_sizes.size() - 1;
+         bucket_size_index >= 0; bucket_size_index--) {
 
-      // std::cout << "Examing " << bucket_size_index << std::endl;
-        
       size_t current_bucket_size = _bucket_sizes[bucket_size_index];
 
       if (last_range.first == 0 && last_range.second == 0) {
@@ -285,9 +282,8 @@ private:
           size_t bucket_start = possible_bucket_index * current_bucket_size;
           size_t bucket_end = bucket_start + current_bucket_size;
           if (bucket_start >= inclusive_start && bucket_end <= exclusive_end) {
-            indices_to_search.push_back(
-                std::make_pair(bucket_size_index, bucket_start / current_bucket_size));
-            // std::cout << "Adding " << bucket_size_index << " " << bucket_start / current_bucket_size << std::endl;
+            indices_to_search.push_back(std::make_pair(
+                bucket_size_index, bucket_start / current_bucket_size));
             last_range = std::make_pair(bucket_start,
                                         bucket_start + current_bucket_size);
           }
@@ -302,14 +298,12 @@ private:
       size_t right_space = exclusive_end - last_range.second;
       if (left_space > current_bucket_size) {
         last_range.first -= current_bucket_size;
-        // std::cout << "Adding " << bucket_size_index << " " << last_range.first / current_bucket_size << std::endl;
-        indices_to_search.push_back(
-            std::make_pair(bucket_size_index, last_range.first / current_bucket_size));
+        indices_to_search.push_back(std::make_pair(
+            bucket_size_index, last_range.first / current_bucket_size));
       }
       if (right_space > current_bucket_size) {
-        // std::cout << "Adding " << bucket_size_index << " " << last_range.second / current_bucket_size << std::endl;
-        indices_to_search.push_back(
-            std::make_pair(bucket_size_index, last_range.second / current_bucket_size));
+        indices_to_search.push_back(std::make_pair(
+            bucket_size_index, last_range.second / current_bucket_size));
         last_range.second += current_bucket_size;
       }
     }
@@ -318,8 +312,9 @@ private:
     for (auto index_pair : indices_to_search) {
       auto bucket_size_index = index_pair.first;
       auto bucket_index = index_pair.second;
-      // std::cout << _bucket_sizes.at(bucket_size_index) << " " << bucket_index * _bucket_sizes.at(bucket_size_index) << std::endl;
-      auto search_results = _spatial_indices.at(bucket_size_index).at(bucket_index)->query(query, range, qp);
+      auto search_results = _spatial_indices.at(bucket_size_index)
+                                .at(bucket_index)
+                                ->query(query, range, qp);
       for (auto pid : search_results) {
         frontier.push_back(pid);
       }
@@ -338,9 +333,8 @@ private:
       }
     }
 
-    parlay::sort_inplace(frontier, [&](auto a, auto b) {
-      return a.second < b.second;
-    });
+    parlay::sort_inplace(frontier,
+                         [&](auto a, auto b) { return a.second < b.second; });
 
     if (frontier.size() > knn) {
       frontier.pop_tail(frontier.size() - knn);
@@ -349,32 +343,34 @@ private:
     return frontier;
   }
 
-  parlay::sequence<pid> optimized_postfiltering_search(
-        const Point &query,
-        const std::pair<FilterType, FilterType> &range,
-        QueryParams qp
-    ) {
+  parlay::sequence<pid>
+  optimized_postfiltering_search(const Point &query,
+                                 const std::pair<FilterType, FilterType> &range,
+                                 QueryParams qp) {
 
-        // if the query range is entirely outside the index range, return
-        if (check_empty(range)) {
-          return parlay::sequence<pid>();
-        }
-
-        size_t knn = qp.k;
-
-        auto inclusive_start = first_greater_than(range.first);
-        auto exclusive_end = first_greater_than_or_equal_to(range.second);
-
-        std::pair<size_t, size_t> index_key;
-        for (int64_t bucket_id = _bucket_sizes.size() - 1; bucket_id >= 0; bucket_id--) {
-            size_t bucket_size = _bucket_sizes[bucket_id];
-            size_t start_bucket = inclusive_start / bucket_size;
-            size_t end_bucket = (exclusive_end - 1) / bucket_size;
-            if (start_bucket == end_bucket) {
-                index_key = {bucket_id, start_bucket};
-            }
-        }
- 
-        return _spatial_indices.at(index_key.first).at(index_key.second)->query(query, range, qp);
+    // if the query range is entirely outside the index range, return
+    if (check_empty(range)) {
+      return parlay::sequence<pid>();
     }
+
+    size_t knn = qp.k;
+
+    auto inclusive_start = first_greater_than(range.first);
+    auto exclusive_end = first_greater_than_or_equal_to(range.second);
+
+    std::pair<size_t, size_t> index_key;
+    for (int64_t bucket_id = _bucket_sizes.size() - 1; bucket_id >= 0;
+         bucket_id--) {
+      size_t bucket_size = _bucket_sizes[bucket_id];
+      size_t start_bucket = inclusive_start / bucket_size;
+      size_t end_bucket = (exclusive_end - 1) / bucket_size;
+      if (start_bucket == end_bucket) {
+        index_key = {bucket_id, start_bucket};
+      }
+    }
+
+    return _spatial_indices.at(index_key.first)
+        .at(index_key.second)
+        ->query(query, range, qp);
+  }
 };

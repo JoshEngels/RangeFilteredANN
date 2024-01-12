@@ -10,8 +10,7 @@ os.makedirs("index_cache/postfilter_vamana", exist_ok=True)
 os.makedirs("results", exist_ok=True)
 
 
-# EXPERIMENT_FILTER_WIDTHS = [0.0001, 0.001, 0.01, 0.1, 0.2, 0.5, 1]
-EXPERIMENT_FILTER_WIDTHS = [0.2]
+EXPERIMENT_FILTER_WIDTHS = [0.0001, 0.001, 0.01, 0.1, 0.2, 0.5, 1]
 
 dataset_folder = "/data/parap/storage/jae/filtered_ann_datasets"
 
@@ -26,7 +25,7 @@ os.environ["PARLAY_NUM_THREADS"] = str(THREADS)
 # run experiment
 TOP_K = 10
 BEAM_SIZES = [10, 20, 40, 80, 160, 320]
-FINAL_MULTIPLIES = [1, 2, 4, 8, 16]
+FINAL_MULTIPLIES = [1, 2, 4, 8, 16, 32]
 
 
 def compute_recall(gt_neighbors, results, top_k):
@@ -96,21 +95,21 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
             )
         )
 
-        # start = time.time()
-        # prefilter_results = prefilter_index.batch_query(
-        #     queries, query_filter_ranges, queries.shape[0], TOP_K
-        # )
-        # run_results.append((
-        #     f"prefiltering",
-        #     compute_recall(prefilter_results[0], query_gt, TOP_K),
-        #     time.time() - start,
-        # ))
-        # print(run_results[-1])
+        start = time.time()
+        prefilter_results = prefilter_index.batch_search(
+            queries, query_filter_ranges, queries.shape[0], TOP_K
+        )
+        run_results.append((
+            f"prefiltering",
+            compute_recall(prefilter_results[0], query_gt, TOP_K),
+            time.time() - start,
+        ))
+        print(run_results[-1])
 
         for beam_size in BEAM_SIZES:
             start = time.time()
             query_params = wp.build_query_params(k=TOP_K, beam_size=beam_size)
-            vamana_tree_results = vamana_tree.batch_filter_search(
+            vamana_tree_results = vamana_tree.batch_search(
                 queries, query_filter_ranges, queries.shape[0], query_params
             )
             run_results.append((
@@ -120,22 +119,22 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
             ))
             print(run_results[-1])
 
-        # for beam_size in BEAM_SIZES:
-        #     for final_multiply in FINAL_MULTIPLIES:
-        #         query_params = wp.build_query_params(k=TOP_K, beam_size=beam_size, final_multiply=final_multiply)
-        #         start = time.time()
-        #         postfilter_results = postfilter.batch_query(
-        #             queries,
-        #             query_filter_ranges,
-        #             queries.shape[0],
-        #             query_params,
-        #         )
-        #         run_results.append((
-        #             f"postfiltering_{beam_size}_{final_multiply}",
-        #             compute_recall(postfilter_results[0], query_gt, TOP_K),
-        #             time.time() - start,
-        #         ))
-        #         print(run_results[-1])
+        for beam_size in BEAM_SIZES:
+            for final_beam_multiply in FINAL_MULTIPLIES:
+                query_params = wp.build_query_params(k=TOP_K, beam_size=beam_size, final_beam_multiply=final_beam_multiply)
+                start = time.time()
+                postfilter_results = postfilter.batch_search(
+                    queries,
+                    query_filter_ranges,
+                    queries.shape[0],
+                    query_params,
+                )
+                run_results.append((
+                    f"postfiltering_{beam_size}_{final_beam_multiply}",
+                    compute_recall(postfilter_results[0], query_gt, TOP_K),
+                    time.time() - start,
+                ))
+                print(run_results[-1])
 
 
         with open(output_file, "a") as f:

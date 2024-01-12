@@ -112,7 +112,7 @@ struct PrefilterIndex {
         std::make_pair(filter_values_sorted[0], filter_values_sorted[n - 1]);
   }
 
-  NeighborsAndDistances batch_query(
+  NeighborsAndDistances batch_search(
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
       const std::vector<std::pair<FilterType, FilterType>> &filters,
       uint64_t num_queries, uint64_t knn) {
