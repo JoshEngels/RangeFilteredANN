@@ -1,4 +1,4 @@
-#%% 
+# %%
 
 from collections import defaultdict
 from range_index import create_range_index
@@ -25,7 +25,7 @@ if "angular" in dataset_name:
 top_k = 10
 output_file = f"{dataset_name}_experiment.txt"
 
-#%%
+# %%
 
 import time
 
@@ -38,7 +38,7 @@ for q in tqdm(queries[:1000]):
             if key not in times:
                 times[key] = []
 
-            beam_size = 2 ** beam_search_pow
+            beam_size = 2**beam_search_pow
             current_bucket_size = 2**n_pow
             possible_starts = list(range(0, len(index.data), current_bucket_size))
             random_index = index.indices[n_pow, np.random.choice(possible_starts)]
@@ -47,23 +47,33 @@ for q in tqdm(queries[:1000]):
             random_index.search(q, top_k, complexity=beam_size)
             times[key].append(time.time() - start)
 
-#%%
-            
-average_times = {k: sum(t)/len(t) for k, t in times.items()}
+# %%
 
-#%%
+average_times = {k: sum(t) / len(t) for k, t in times.items()}
+
+# %%
 
 for n_pow in range(index.low_pow, index.max_pow + 1):
     for beam_search_pow in range(2, 11):
         key = (beam_search_pow, n_pow)
-        print(beam_search_pow, n_pow, average_times[key], average_times[key] / average_times[(2, n_pow)])
-        
-#%%
+        print(
+            beam_search_pow,
+            n_pow,
+            average_times[key],
+            average_times[key] / average_times[(2, n_pow)],
+        )
+
+# %%
 
 for beam_search_pow in range(2, 11):
     for n_pow in range(index.low_pow, index.max_pow + 1):
         key = (beam_search_pow, n_pow)
-        print(beam_search_pow, n_pow, average_times[key], average_times[key] / average_times[(beam_search_pow, index.low_pow)])
-        
+        print(
+            beam_search_pow,
+            n_pow,
+            average_times[key],
+            average_times[key] / average_times[(beam_search_pow, index.low_pow)],
+        )
+
 
 # %%

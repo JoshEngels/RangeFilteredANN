@@ -350,7 +350,7 @@ class RangeIndex:
         extra_doubles,
         index_key="full",
         optimize_index_choice=False,
-        starting_complexity=None
+        starting_complexity=None,
     ):
         if self.distance_metric == "mips":
             query /= np.sum(query**2)

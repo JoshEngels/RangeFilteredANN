@@ -84,7 +84,7 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
                             filter_range=filter_range,
                             extra_doubles=extra_doubles,
                             optimize_index_choice=optimize_index_choice,
-                            starting_complexity=starting_complexity
+                            starting_complexity=starting_complexity,
                         )
                         run_results[
                             f"postfiltering{'-optimized' if optimize_index_choice else ''}_{extra_doubles}_{starting_complexity}"

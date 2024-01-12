@@ -174,7 +174,7 @@ struct PostfilterVamanaIndex {
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
       const std::vector<std::pair<FilterType, FilterType>> &filters,
       uint64_t num_queries, uint64_t knn,
-      QueryParams QP = default_query_params) {
+      QueryParams QP = default_query_params, size_t final_beam_multiply = 8) {
     // Change params to set k = beamsize
     QueryParams actual_params = {QP.beamSize, QP.beamSize, QP.cut, QP.limit, QP.degree_limit};
     py::array_t<unsigned int> ids({num_queries, knn});
@@ -184,11 +184,15 @@ struct PostfilterVamanaIndex {
       Point q = Point(queries.data(i), points->dimension(),
                       points->aligned_dimension(), i);
       parlay::sequence<pid> frontier = {};
-      while (frontier.size() < QP.k && actual_params.beamSize < QP.degree_limit) {
+      while (frontier.size() < knn && actual_params.beamSize < QP.degree_limit) {
         frontier = this->query(q, filters[i], actual_params);
         actual_params.beamSize *= 2;
         actual_params.k *= 2;
       }
+      size_t final_beam_size = std::min<size_t>(actual_params.beamSize * final_beam_multiply, QP.degree_limit);
+      actual_params.beamSize = final_beam_size;
+      actual_params.k = final_beam_size;
+      frontier = this->query(q, filters[i], actual_params);
 
       for (auto j = 0; j < knn; j++) {
         if (j < frontier.size()) {
