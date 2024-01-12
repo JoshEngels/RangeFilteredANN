@@ -1,7 +1,22 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from utils import pareto_front
 import numpy as np
+
+def pareto_front(x, y):
+    sorted_indices = sorted(range(len(y)), key=lambda k: -y[k])
+    x_sorted = x[sorted_indices]
+    y_sorted = y[sorted_indices]
+
+    pareto_front_x = [x_sorted[0]]
+    pareto_front_y = [y_sorted[0]]
+
+    for i in range(1, len(x_sorted)):
+        if x_sorted[i] > pareto_front_x[-1]:
+            pareto_front_x.append(x_sorted[i])
+            pareto_front_y.append(y_sorted[i])
+
+    return pareto_front_x, pareto_front_y
+
 
 SMALL_SIZE = 14
 MEDIUM_SIZE = 22
@@ -22,7 +37,7 @@ plt.rc(
 
 
 def plot(dataset_name):
-    df = pd.read_csv(f"{dataset_name}_experiment.txt")
+    df = pd.read_csv(f"results/{dataset_name}_results.csv")
 
     df["method"] = df["method"].str.split("_").str[0]
 
@@ -64,8 +79,10 @@ def plot(dataset_name):
     fig.suptitle(f"Pareto Fronts by Filter Width on {dataset_name}")
 
     plt.tight_layout()
-    plt.savefig(f"{dataset_name}_experiment.png", bbox_inches="tight")
+    plt.savefig(f"results/{dataset_name}_results.png", bbox_inches="tight")
 
 
 plot("glove-100-angular")
 plot("sift-128-euclidean")
+plot("deep-image-96-angular")
+plot("redcaps-512-angular")
