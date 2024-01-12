@@ -121,7 +121,7 @@ struct RangeFilterTreeIndex {
   NeighborsAndDistances batch_search(
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
       const std::vector<std::pair<FilterType, FilterType>> &filters,
-      uint64_t num_queries, QueryParams qp) {
+      uint64_t num_queries, const std::string& query_method, QueryParams qp) {
     size_t knn = qp.k;
     py::array_t<unsigned int> ids({num_queries, knn});
     py::array_t<float> dists({num_queries, knn});
@@ -131,7 +131,7 @@ struct RangeFilterTreeIndex {
                       _points->aligned_dimension(), i);
       std::pair<FilterType, FilterType> filter = filters[i];
 
-      auto results = fenwick_tree_search(q, filter, qp);
+      auto results = query_method == "optimized_postfilter"? optimized_postfiltering_search(q, filter, qp): fenwick_tree_search(q, filter, qp);
 
       for (auto j = 0; j < knn; j++) {
         if (j < results.size()) {

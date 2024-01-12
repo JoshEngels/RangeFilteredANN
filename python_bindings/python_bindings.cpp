@@ -94,7 +94,7 @@ template <typename T, typename Point> inline void add_variant(py::module_ &m, co
     py::class_<RangeFilterTreeIndex<T, Point>>(m, ("RangeFilterTreeIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>())
     .def(py::init<py::array_t<T>,py::array_t<float_t>, int32_t>())
-    .def("batch_search", &RangeFilterTreeIndex<T, Point>::batch_search, "queries"_a, "filters"_a, "num_queries"_a, "QP"_a);
+    .def("batch_search", &RangeFilterTreeIndex<T, Point>::batch_search, "queries"_a, "filters"_a, "num_queries"_a,  "query_method"_a, "QP"_a);
 
     py::class_<PostfilterVamanaIndex<T, Point>>(m, ("PostfilterVamanaIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>(), "points"_a, "filters"_a)
@@ -105,7 +105,7 @@ template <typename T, typename Point> inline void add_variant(py::module_ &m, co
     py::class_<RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>>(m, ("VamanaRangeFilterTreeIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>())
     .def(py::init<py::array_t<T>,py::array_t<float_t>, int32_t>())
-    .def("batch_search", &RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>::batch_search, "queries"_a, "filters"_a, "num_queries"_a, "QP"_a);
+    .def("batch_search", &RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>::batch_search, "queries"_a, "filters"_a, "num_queries"_a,  "query_method"_a, "QP"_a);
     
 
 }

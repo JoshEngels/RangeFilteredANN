@@ -153,23 +153,23 @@ struct PostfilterVamanaIndex {
                                  qp.final_beam_multiply,
                                  qp.postfiltering_max_beam};
     parlay::sequence<pid> frontier = {};
-    while (frontier.size() < knn && actual_params.beamSize < qp.degree_limit) {
-      frontier = this->query(q, filter, actual_params);
+    while (frontier.size() < knn && actual_params.beamSize < qp.postfiltering_max_beam) {
+      frontier = this->raw_query(q, filter, actual_params);
       actual_params.beamSize *= 2;
       actual_params.k *= 2;
     }
     size_t final_beam_size = std::min<size_t>(
-        actual_params.beamSize * qp.final_beam_multiply, qp.degree_limit);
+        actual_params.beamSize * qp.final_beam_multiply, qp.postfiltering_max_beam);
     actual_params.beamSize = final_beam_size;
     actual_params.k = final_beam_size;
-    return this->query(q, filter, actual_params);
+    return this->raw_query(q, filter, actual_params);
   }
 
   // Does a batch of doubling postfiltering queries on the underlying index
   NeighborsAndDistances batch_search(
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
       const std::vector<std::pair<FilterType, FilterType>> &filters,
-      uint64_t num_queries, QueryParams qp = default_query_params) {
+      uint64_t num_queries, QueryParams qp) {
 
     size_t knn = qp.k;
 

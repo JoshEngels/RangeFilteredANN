@@ -46,7 +46,10 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
             f.write("filter_width,method,recall,average_time,qps,threads\n")
 
     data = np.load(os.path.join(dataset_folder, f"{dataset_name}.npy"))
-    queries = np.load(os.path.join(dataset_folder, f"{dataset_name}_queries.npy"))[:1000]
+    queries = np.load(os.path.join(dataset_folder, f"{dataset_name}_queries.npy"))
+
+    queries = queries[:200]
+
     filter_values = np.load(
         os.path.join(dataset_folder, f"{dataset_name}_filter-values.npy")
     )
@@ -110,10 +113,10 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
             start = time.time()
             query_params = wp.build_query_params(k=TOP_K, beam_size=beam_size)
             vamana_tree_results = vamana_tree.batch_search(
-                queries, query_filter_ranges, queries.shape[0], query_params
+                queries, query_filter_ranges, queries.shape[0], "fenwick", query_params
             )
             run_results.append((
-                f"vamana_tree_{beam_size}",
+                f"vamana-tree_{beam_size}",
                 compute_recall(vamana_tree_results[0], query_gt, TOP_K),
                 time.time() - start,
             ))
@@ -136,6 +139,19 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
                 ))
                 print(run_results[-1])
 
+        for beam_size in BEAM_SIZES:
+            for final_beam_multiply in FINAL_MULTIPLIES:
+                query_params = wp.build_query_params(k=TOP_K, beam_size=beam_size, final_beam_multiply=final_beam_multiply)
+                start = time.time()
+                optimized_postfilter_results = vamana_tree.batch_search(
+                    queries, query_filter_ranges, queries.shape[0], "optimized_postfilter", query_params
+                )
+                run_results.append((
+                    f"optimized-postfiltering_{beam_size}_{final_beam_multiply}",
+                    compute_recall(optimized_postfilter_results[0], query_gt, TOP_K),
+                    time.time() - start,
+                ))
+                print(run_results[-1])
 
         with open(output_file, "a") as f:
             for name, recall, total_time in run_results:
