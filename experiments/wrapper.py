@@ -302,5 +302,5 @@ def vamana_range_filter_tree_constructor(metric, dtype):
             raise Exception("Invalid data type " + dtype)
 
 
-def build_query_params(k, beam_size, cut=1.35, limit=10_000_000, beam_size_limit=10000):
-    return QueryParams(k, beam_size, cut, limit, beam_size_limit)
+def build_query_params(k, beam_size, cut=1.35, limit=10_000_000, beam_size_limit=10000, final_beam_multiply=8, postfiltering_max_beam=10000):
+    return QueryParams(k, beam_size, cut, limit, beam_size_limit, final_beam_multiply, postfiltering_max_beam)

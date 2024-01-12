@@ -176,15 +176,16 @@ struct PostfilterVamanaIndex {
   NeighborsAndDistances batch_query(
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
       const std::vector<std::pair<FilterType, FilterType>> &filters,
-      uint64_t num_queries, uint64_t knn, QueryParams qp = default_query_params,
-      size_t final_beam_multiply = 8) {
-    // Change params to set k = beamsize
+      uint64_t num_queries, QueryParams qp = default_query_params) {
+
+    size_t knn = qp.k;
+
     py::array_t<unsigned int> ids({num_queries, knn});
     py::array_t<float> dists({num_queries, knn});
 
     parlay::parallel_for(0, num_queries, [&](size_t i) {
       QueryParams actual_params = {qp.beamSize, qp.beamSize, qp.cut, qp.limit,
-                                   qp.degree_limit};
+                                   qp.degree_limit, qp.final_beam_multiply, qp.postfiltering_max_beam};
       Point q = Point(queries.data(i), points->dimension(),
                       points->aligned_dimension(), i);
       parlay::sequence<pid> frontier = {};
@@ -195,7 +196,7 @@ struct PostfilterVamanaIndex {
         actual_params.k *= 2;
       }
       size_t final_beam_size = std::min<size_t>(
-          actual_params.beamSize * final_beam_multiply, qp.degree_limit);
+          actual_params.beamSize * qp.final_beam_multiply, qp.degree_limit);
       actual_params.beamSize = final_beam_size;
       actual_params.k = final_beam_size;
       frontier = this->query(q, filters[i], actual_params);

@@ -101,7 +101,7 @@ template <typename T, typename Point> inline void add_variant(py::module_ &m, co
     .def(py::init<py::array_t<T>,py::array_t<float_t>>(), "points"_a, "filters"_a)
     .def(py::init<py::array_t<T>,py::array_t<float_t>, BuildParams>(), "points"_a, "filters"_a, "BP"_a)
     .def(py::init<py::array_t<T>,py::array_t<float_t>, BuildParams, std::string>(), "points"_a, "filters"_a, "BP"_a, "cache_path"_a)
-    .def("batch_query", &PostfilterVamanaIndex<T, Point>::batch_query, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a, "QP"_a, "final_beam_multiply"_a);
+    .def("batch_query", &PostfilterVamanaIndex<T, Point>::batch_query, "queries"_a, "filters"_a, "num_queries"_a, "QP"_a);
 
     py::class_<RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>>(m, ("VamanaRangeFilterTreeIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>())
@@ -161,7 +161,7 @@ PYBIND11_MODULE(window_ann, m)
         .def_readonly("b", &QueryFilter::b);
 
     py::class_<QueryParams>(m, "QueryParams")
-        .def(py::init<long, long, double, long, long>(), "k"_a, "beam_width"_a, "cut"_a, "limit"_a, "degree_limit"_a);
+        .def(py::init<long, long, double, long, long, long, long>(), "k"_a, "beam_width"_a, "cut"_a, "limit"_a, "degree_limit"_a, "final_beam_multiply"_a, "postfiltering_max_beam"_a);
 
     py::class_<BuildParams>(m, "BuildParams")
         .def(py::init<long, long, double>(), "max_degree"_a, "limit"_a, "alpha"_a);

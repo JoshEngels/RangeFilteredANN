@@ -217,8 +217,8 @@ private:
       size_t num_buckets = (n + current_filter_size - 1) / current_filter_size;
       _spatial_indices.push_back(std::vector<SpatialIndexPtr>(num_buckets));
       _starts.push_back(std::vector<size_t>(num_buckets));
-      // parlay::parallel_for(0, num_buckets, [&](auto bucket_id) {
-      for (size_t bucket_id = 0; bucket_id < num_buckets; bucket_id++) {
+      parlay::parallel_for(0, num_buckets, [&](auto bucket_id) {
+      // for (size_t bucket_id = 0; bucket_id < num_buckets; bucket_id++) {
         size_t start = bucket_id * current_filter_size;
         auto this_filter_size = std::min(current_filter_size, n - start);
         _starts.at(_starts.size() - 1).at(bucket_id) = start;
@@ -229,12 +229,25 @@ private:
             _filter_values.begin() + start,
             _filter_values.begin() + start + this_filter_size);
         _spatial_indices.at(_spatial_indices.size() - 1).at(bucket_id) = std::make_unique<SpatialIndex>(std::move(subset_points), subset_of_filter_values);
-
-        current_filter_size *= 2;
-      }
+      });
+      current_filter_size *= 2;
     }
   }
 
+
+  bool check_empty(const std::pair<FilterType, FilterType> &range) {
+    bool empty = range.second < _filter_values.front() ||
+           range.first > _filter_values.back();
+    if (empty) {
+      std::cout
+          << "Query range is entirely outside the index range ("
+          << _filter_values.front() << ", " << _filter_values.back()
+          << ") index range vs. (" << range.first << ", " << range.second
+          << ") This shouldn't happen but does not directly impact correctness"
+          << std::endl;
+    }
+    return empty;
+  }
 
   // Returns uncoverted ids
   parlay::sequence<pid>
@@ -242,14 +255,7 @@ private:
                       const std::pair<FilterType, FilterType> &range,
                       QueryParams qp) {
     // if the query range is entirely outside the index range, return
-    if (range.second < _filter_values.at(0) ||
-        range.first > _filter_values.at(1)) {
-      std::cout
-          << "Query range is entirely outside the index range ("
-          << _filter_values.at(0) << ", " << _filter_values.at(1)
-          << ") index range vs. (" << range.first << ", " << range.second
-          << ") This shouldn't happen but does not directly impact correctness"
-          << std::endl;
+    if (check_empty(range)) {
       return parlay::sequence<pid>();
     }
 
@@ -258,10 +264,14 @@ private:
     auto inclusive_start = first_greater_than(range.first);
     auto exclusive_end = first_greater_than_or_equal_to(range.second);
 
+    // std::cout << "QUERY " << range.first << " " << range.second << std::endl;
+
     std::pair<size_t, size_t> last_range = {0, 0};
     std::vector<std::pair<size_t, size_t>> indices_to_search;
-    for (size_t bucket_size_index = 0; bucket_size_index < _bucket_sizes.size();
-         bucket_size_index++) {
+    for (int64_t bucket_size_index = _bucket_sizes.size() - 1; bucket_size_index >= 0; bucket_size_index--) {
+
+      // std::cout << "Examing " << bucket_size_index << std::endl;
+        
       size_t current_bucket_size = _bucket_sizes[bucket_size_index];
 
       if (last_range.first == 0 && last_range.second == 0) {
@@ -277,6 +287,7 @@ private:
           if (bucket_start >= inclusive_start && bucket_end <= exclusive_end) {
             indices_to_search.push_back(
                 std::make_pair(bucket_size_index, bucket_start / current_bucket_size));
+            // std::cout << "Adding " << bucket_size_index << " " << bucket_start / current_bucket_size << std::endl;
             last_range = std::make_pair(bucket_start,
                                         bucket_start + current_bucket_size);
           }
@@ -291,10 +302,12 @@ private:
       size_t right_space = exclusive_end - last_range.second;
       if (left_space > current_bucket_size) {
         last_range.first -= current_bucket_size;
+        // std::cout << "Adding " << bucket_size_index << " " << last_range.first / current_bucket_size << std::endl;
         indices_to_search.push_back(
             std::make_pair(bucket_size_index, last_range.first / current_bucket_size));
       }
       if (right_space > current_bucket_size) {
+        // std::cout << "Adding " << bucket_size_index << " " << last_range.second / current_bucket_size << std::endl;
         indices_to_search.push_back(
             std::make_pair(bucket_size_index, last_range.second / current_bucket_size));
         last_range.second += current_bucket_size;
@@ -304,8 +317,9 @@ private:
     parlay::sequence<pid> frontier;
     for (auto index_pair : indices_to_search) {
       auto bucket_size_index = index_pair.first;
-      auto bucket_index = index_pair.second / _bucket_sizes.at(bucket_size_index);
-      auto search_results = _spatial_indices.at(index_pair.first).at(bucket_index)->query(query, range, qp);
+      auto bucket_index = index_pair.second;
+      // std::cout << _bucket_sizes.at(bucket_size_index) << " " << bucket_index * _bucket_sizes.at(bucket_size_index) << std::endl;
+      auto search_results = _spatial_indices.at(bucket_size_index).at(bucket_index)->query(query, range, qp);
       for (auto pid : search_results) {
         frontier.push_back(pid);
       }
@@ -319,7 +333,7 @@ private:
       for (size_t i = inclusive_start; i < last_range.first; i++) {
         frontier.push_back({i, (*_points)[i].distance(query)});
       }
-      for (size_t i = last_range.first; i < exclusive_end; i++) {
+      for (size_t i = last_range.second; i < exclusive_end; i++) {
         frontier.push_back({i, (*_points)[i].distance(query)});
       }
     }
@@ -334,4 +348,33 @@ private:
 
     return frontier;
   }
+
+  parlay::sequence<pid> optimized_postfiltering_search(
+        const Point &query,
+        const std::pair<FilterType, FilterType> &range,
+        QueryParams qp
+    ) {
+
+        // if the query range is entirely outside the index range, return
+        if (check_empty(range)) {
+          return parlay::sequence<pid>();
+        }
+
+        size_t knn = qp.k;
+
+        auto inclusive_start = first_greater_than(range.first);
+        auto exclusive_end = first_greater_than_or_equal_to(range.second);
+
+        std::pair<size_t, size_t> index_key;
+        for (int64_t bucket_id = _bucket_sizes.size() - 1; bucket_id >= 0; bucket_id--) {
+            size_t bucket_size = _bucket_sizes[bucket_id];
+            size_t start_bucket = inclusive_start / bucket_size;
+            size_t end_bucket = (exclusive_end - 1) / bucket_size;
+            if (start_bucket == end_bucket) {
+                index_key = {bucket_id, start_bucket};
+            }
+        }
+ 
+        return _spatial_indices.at(index_key.first).at(index_key.second)->query(query, range, qp);
+    }
 };
