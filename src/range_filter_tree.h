@@ -359,13 +359,14 @@ private:
     auto exclusive_end = first_greater_than_or_equal_to(range.second);
 
     std::pair<size_t, size_t> index_key;
-    for (int64_t bucket_id = _bucket_sizes.size() - 1; bucket_id >= 0;
-         bucket_id--) {
+    for (int64_t bucket_id = 0; bucket_id < _bucket_sizes.size(); bucket_id++) {
       size_t bucket_size = _bucket_sizes[bucket_id];
       size_t start_bucket = inclusive_start / bucket_size;
       size_t end_bucket = (exclusive_end - 1) / bucket_size;
       if (start_bucket == end_bucket) {
         index_key = {bucket_id, start_bucket};
+        // std::cout << inclusive_start << " " << exclusive_end << " " << bucket_size << " " << start_bucket * bucket_size << std::endl;
+        break;
       }
     }
 

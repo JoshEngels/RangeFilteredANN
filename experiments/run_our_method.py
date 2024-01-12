@@ -25,7 +25,7 @@ os.environ["PARLAY_NUM_THREADS"] = str(THREADS)
 # run experiment
 TOP_K = 10
 BEAM_SIZES = [10, 20, 40, 80, 160, 320]
-FINAL_MULTIPLIES = [1, 2, 4, 8, 16, 32]
+FINAL_MULTIPLIES = [1, 2, 3, 4, 8, 16, 32]
 
 
 def compute_recall(gt_neighbors, results, top_k):
@@ -48,7 +48,7 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
     data = np.load(os.path.join(dataset_folder, f"{dataset_name}.npy"))
     queries = np.load(os.path.join(dataset_folder, f"{dataset_name}_queries.npy"))
 
-    queries = queries[:200]
+    queries = queries[:1000]
 
     filter_values = np.load(
         os.path.join(dataset_folder, f"{dataset_name}_filter-values.npy")
