@@ -142,5 +142,5 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
         with open(output_file, "a") as f:
             for name, recall, total_time in run_results:
                 f.write(
-                    f"{filter_width},{name},{recall / len(queries)},{total_time/len(queries)},{len(queries)/total_time}{THREADS}\n"
+                    f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{THREADS}\n"
                 )
