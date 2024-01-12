@@ -46,7 +46,7 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
             f.write("filter_width,method,recall,average_time,qps,threads\n")
 
     data = np.load(os.path.join(dataset_folder, f"{dataset_name}.npy"))
-    queries = np.load(os.path.join(dataset_folder, f"{dataset_name}_queries.npy"))[:100]
+    queries = np.load(os.path.join(dataset_folder, f"{dataset_name}_queries.npy"))[:1000]
     filter_values = np.load(
         os.path.join(dataset_folder, f"{dataset_name}_filter-values.npy")
     )

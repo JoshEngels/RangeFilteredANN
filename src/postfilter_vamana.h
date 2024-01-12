@@ -179,11 +179,11 @@ struct PostfilterVamanaIndex {
       uint64_t num_queries, uint64_t knn,
       QueryParams qp = default_query_params, size_t final_beam_multiply = 8) {
     // Change params to set k = beamsize
-    QueryParams actual_params = {qp.beamSize, qp.beamSize, qp.cut, qp.limit, qp.degree_limit};
     py::array_t<unsigned int> ids({num_queries, knn});
     py::array_t<float> dists({num_queries, knn});
 
     parlay::parallel_for(0, num_queries, [&](size_t i) {
+      QueryParams actual_params = {qp.beamSize, qp.beamSize, qp.cut, qp.limit, qp.degree_limit};
       Point q = Point(queries.data(i), points->dimension(),
                       points->aligned_dimension(), i);
       parlay::sequence<pid> frontier = {};
