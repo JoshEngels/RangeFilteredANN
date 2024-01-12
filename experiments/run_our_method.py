@@ -46,7 +46,7 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
             f.write("filter_width,method,recall,average_time,qps,threads\n")
 
     data = np.load(os.path.join(dataset_folder, f"{dataset_name}.npy"))
-    queries = np.load(os.path.join(dataset_folder, f"{dataset_name}_queries.npy"))
+    queries = np.load(os.path.join(dataset_folder, f"{dataset_name}_queries.npy"))[:100]
     filter_values = np.load(
         os.path.join(dataset_folder, f"{dataset_name}_filter-values.npy")
     )
@@ -82,8 +82,6 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
     vamana_tree_build_time = vamana_tree_build_end - vamana_tree_build_start
     print(f"Vamana tree build time: {vamana_tree_build_time:.3f}s")
 
-    continue
-
     for filter_width in EXPERIMENT_FILTER_WIDTHS:
         run_results = []
         query_filter_ranges = np.load(
@@ -110,8 +108,9 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
 
         for beam_size in BEAM_SIZES:
             start = time.time()
+            query_params = wp.build_query_params(k=TOP_K, beam_size=beam_size)
             vamana_tree_results = vamana_tree.batch_filter_search(
-                queries, query_filter_ranges, queries.shape[0], TOP_K
+                queries, query_filter_ranges, queries.shape[0], TOP_K, query_params
             )
             run_results.append((
                 f"vamana_tree_{beam_size}",
@@ -122,7 +121,7 @@ for dataset_name in ["glove-100-angular", "deep-image-96-angular", "sift-128-euc
 
         for beam_size in BEAM_SIZES:
             for final_multiply in FINAL_MULTIPLIES:
-                query_params = wp.build_query_params(k=TOP_K, beam_size=100)
+                query_params = wp.build_query_params(k=TOP_K, beam_size=beam_size)
                 start = time.time()
                 postfilter_results = postfilter.batch_query(
                     queries,

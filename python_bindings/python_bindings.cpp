@@ -90,12 +90,12 @@ template <typename T, typename Point> inline void add_variant(py::module_ &m, co
     py::class_<PrefilterIndex<T, Point>>(m, ("PrefilterIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>())
     .def("batch_query", &PrefilterIndex<T, Point>::batch_query, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a);
-    // .def("naive_batch_query", &PrefilterIndex<T, Point>::naive_batch_query, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a);
 
+    // TODO: Remove knn from the batch_filter_search call
     py::class_<RangeFilterTreeIndex<T, Point>>(m, ("RangeFilterTreeIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>())
     .def(py::init<py::array_t<T>,py::array_t<float_t>, int32_t>())
-    .def("batch_filter_search", &RangeFilterTreeIndex<T, Point>::batch_filter_search, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a);
+    .def("batch_filter_search", &RangeFilterTreeIndex<T, Point>::batch_filter_search, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a, "QP"_a);
 
     py::class_<PostfilterVamanaIndex<T, Point>>(m, ("PostfilterVamanaIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>(), "points"_a, "filters"_a)
@@ -106,7 +106,7 @@ template <typename T, typename Point> inline void add_variant(py::module_ &m, co
     py::class_<RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>>(m, ("VamanaRangeFilterTreeIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>())
     .def(py::init<py::array_t<T>,py::array_t<float_t>, int32_t>())
-    .def("batch_filter_search", &RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>::batch_filter_search, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a);
+    .def("batch_filter_search", &RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>::batch_filter_search, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a,  "QP"_a);
     
 
 }

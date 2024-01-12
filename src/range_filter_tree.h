@@ -225,7 +225,7 @@ struct RangeFilterTreeIndex {
   NeighborsAndDistances batch_filter_search(
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
       const std::vector<std::pair<FilterType, FilterType>> &filters,
-      uint64_t num_queries, uint64_t knn) {
+      uint64_t num_queries, uint64_t knn, QueryParams qp) {
     py::array_t<unsigned int> ids({num_queries, knn});
     py::array_t<float> dists({num_queries, knn});
 
@@ -234,11 +234,16 @@ struct RangeFilterTreeIndex {
                       this->spatial_index->points->aligned_dimension(), i);
       std::pair<FilterType, FilterType> filter = filters[i];
 
-      auto results = orig_serial_query(q, filter, knn);
+      auto results = orig_serial_query(q, filter, knn, qp);
 
       for (auto j = 0; j < knn; j++) {
-        ids.mutable_at(i, j) = sorted_index_to_original_point_id.at(results[j].first);
-        dists.mutable_at(i, j) = results[j].second;
+        if (j < results.size()) {
+          ids.mutable_at(i, j) = sorted_index_to_original_point_id.at(results[j].first);
+          dists.mutable_at(i, j) = results[j].second;
+        } else {
+          ids.mutable_at(i, j) = 0;
+          dists.mutable_at(i, j) = std::numeric_limits<float>::max();
+        }
       }
     });
     return std::make_pair(ids, dists);
@@ -247,14 +252,17 @@ struct RangeFilterTreeIndex {
   /* not really needed but just to highlight it */
   inline parlay::sequence<pid>
   self_query(const Point &query, const std::pair<FilterType, FilterType> &range,
-             uint64_t knn) {
-    return spatial_index->query(query, range);
+             uint64_t knn, QueryParams qp) {
+    // Ensure that qp knn is correct, in case we are using a default qp
+    // TODO: Just remove knn
+    qp.k = knn;
+    return spatial_index->query(query, range, qp);
   }
 
   parlay::sequence<pid>
   orig_serial_query(const Point &query,
                     const std::pair<FilterType, FilterType> &range,
-                    uint64_t knn) {
+                    uint64_t knn, QueryParams qp) {
     // if the query range is entirely outside the index range, return
     if (range.second < this->range.first || range.first > this->range.second) {
       std::cout
@@ -271,18 +279,18 @@ struct RangeFilterTreeIndex {
     // if there are no children, search the elements within the target range
     if (!has_children || (range.first <= this->range.first &&
                           range.second >= this->range.second)) {
-      frontier = self_query(query, range, knn);
+      frontier = self_query(query, range, knn, qp);
     } else {
       // recurse on the children
       auto &[index1, index2] = this->children;
       parlay::sequence<pid> results1, results2;
 
       if (range.first <= median.first) {
-        results1 = index1->orig_serial_query(query, range, knn);
+        results1 = index1->orig_serial_query(query, range, knn, qp);
       }
 
       if (range.second >= median.second) {
-        results2 = index2->orig_serial_query(query, range, knn);
+        results2 = index2->orig_serial_query(query, range, knn, qp);
       }
 
       if (results1.size() == 0) {

@@ -177,8 +177,13 @@ struct PrefilterIndex {
     return std::make_pair(ids, dists);
   }
 
-  /* processes a single query */
   parlay::sequence<pid> query(Point q, std::pair<FilterType, FilterType> filter,
+                              QueryParams qp) {
+                              return query_knn(q, filter, qp.k);
+  }
+
+  /* processes a single query */
+  parlay::sequence<pid> query_knn(Point q, std::pair<FilterType, FilterType> filter,
                               uint64_t knn = 10) {
     size_t start;
 
@@ -226,57 +231,4 @@ struct PrefilterIndex {
     return frontier;
   }
 
-  // NeighborsAndDistances naive_batch_query(py::array_t<T, py::array::c_style |
-  // py::array::forcecast>& queries, const std::vector<std::pair<FilterType,
-  // FilterType>>& filters, uint64_t num_queries, uint64_t knn) {
-  //     py::array_t<unsigned int> ids({num_queries, knn});
-  //     py::array_t<float> dists({num_queries, knn});
-
-  //     parlay::parallel_for(0, num_queries, [&](auto i) {
-  //         Point q = Point(queries.data(i), this->points->dimension(),
-  //             this->points->aligned_dimension(),
-  //             i);
-
-  //         std::pair<FilterType, FilterType> filter = filters[i];
-
-  //         // auto frontier = parlay::tabulate(points.size(), [&](index_type
-  //         j) {
-  //         //     if (filter_values[j] < filter.first || filter_values[j] >
-  //         filter.second) {
-  //         //         return std::make_pair(-1,
-  //         std::numeric_limits<float>::max());
-  //         //     } else {
-  //         //         Point p = this->points[j];
-  //         //         float dist = q.distance(p);
-  //         //         return std::make_pair(j, dist);
-  //         //     }
-  //         // });
-
-  //         auto frontier = parlay::sequence<std::pair<index_type,
-  //         float>>(points->size());
-
-  //         for (auto j = 0; j < points->size(); j++) {
-  //             if (filter_values[j] < filter.first || filter_values[j] >
-  //             filter.second) {
-  //                 frontier[j] = std::make_pair(-1,
-  //                 std::numeric_limits<float>::max());
-  //             } else {
-  //                 Point p = (*points)[j];
-  //                 float dist = q.distance(p);
-  //                 frontier[j] = std::make_pair(j, dist);
-  //             }
-  //         }
-
-  //         parlay::sort_inplace(frontier, [&](auto a, auto b) {
-  //             return a.second < b.second;
-  //         });
-
-  //         for (auto j = 0; j < knn; j++) {
-  //             ids.mutable_at(i, j) = frontier[j].first;
-  //             dists.mutable_at(i, j) = frontier[j].second;
-  //         }
-  //     });
-
-  //     return std::make_pair(ids, dists);
-  // }
 };
