@@ -30,11 +30,11 @@ PointRange<T, Point> numpy_point_range(py::array_t<T> points) {
   }
 
   auto n = buf.shape[0];    // number of points
-  auto dims = buf.shape[1]; // dimension of each point
+  auto dimension = buf.shape[1]; // dimension of each point
 
   T *numpy_data = static_cast<T *>(buf.ptr);
 
-  return std::move(PointRange<T, Point>(numpy_data, n, dims));
+  return std::move(PointRange<T, Point>(numpy_data, n, dimension));
 }
 
 template <typename T, typename Point,
@@ -61,15 +61,19 @@ struct RangeFilterTreeIndex {
       median; // median filter values, delineating the range between the two
               // children
 
+  parlay::sequence<size_t> sorted_index_to_original_point_id;
+
   int32_t cutoff = 1000;
 
   size_t n;
 
   RangeFilterTreeIndex(std::unique_ptr<PR> points,
                        const parlay::sequence<FilterType> &filter_values,
+                       const parlay::sequence<size_t> &decoding,
                        int32_t cutoff = 1000, bool recurse = true)
       : spatial_index(std::make_unique<RangeSpatialIndex<T, Point, PR>>(
             std::move(points), filter_values)),
+        sorted_index_to_original_point_id(decoding),
         cutoff(cutoff) {
 
     n = this->spatial_index->points->size();
@@ -93,13 +97,7 @@ struct RangeFilterTreeIndex {
       throw std::runtime_error("points numpy array must be 2-dimensional");
     }
     n = points_buf.shape[0];         // number of points
-    auto dims = points_buf.shape[1]; // dimension of each point
-
-    // avoiding this copy may have dire consequences from gc
-    T *numpy_data = static_cast<T *>(points_buf.ptr);
-
-    PointRange<T, Point> point_range =
-        PointRange<T, Point>(numpy_data, n, dims);
+    auto dimension = points_buf.shape[1]; // dimension of each point
 
     py::buffer_info filter_values_buf = filter_values.request();
     if (filter_values_buf.ndim != 1) {
@@ -118,8 +116,34 @@ struct RangeFilterTreeIndex {
         parlay::sequence<FilterType>(filter_values_data,
                                      filter_values_data + n);
 
+    auto filter_indices_sorted = parlay::tabulate(n, [](index_type i) { return i; });
+
+    parlay::sort_inplace(filter_indices_sorted, [&](auto i, auto j) {
+      return filter_values_seq[i] < filter_values_seq[j];
+    });
+
+    T *numpy_data = static_cast<T *>(points_buf.ptr);
+
+    auto data_sorted = parlay::sequence<T>(n * dimension);
+    auto decoding = parlay::sequence<size_t>(n, 0);
+
+    parlay::parallel_for(0, n, [&](size_t sorted_id) { 
+      for (size_t d = 0; d < dimension; d++) {
+        data_sorted.at(sorted_id * dimension + d) = numpy_data[filter_indices_sorted.at(sorted_id) * dimension + d];
+      }
+      decoding.at(sorted_id) = filter_indices_sorted.at(sorted_id);
+    });
+
+    auto filter_values_sorted = parlay::sequence<FilterType>(n);
+    parlay::parallel_for(0, n, [&](auto i) {
+      filter_values_sorted.at(i) = filter_values_seq.at(filter_indices_sorted.at(i));
+    });
+
+    PointRange<T, Point> point_range =
+        PointRange<T, Point>(data_sorted.data(), n, dimension);
+
     *this = RangeFilterTreeIndex<T, Point, RangeSpatialIndex, PR, FilterType>(
-        std::make_unique<PR>(point_range), filter_values_seq, cutoff, true);
+        std::make_unique<PR>(point_range), filter_values_sorted, decoding, cutoff, true);
   }
 
   void build_children() {
@@ -151,19 +175,26 @@ struct RangeFilterTreeIndex {
         this->spatial_index->filter_values.begin() + n1,
         this->spatial_index->filter_values.end());
 
+    auto sorted_index_to_original_point_id1 = parlay::sequence<size_t>(
+        sorted_index_to_original_point_id.begin(),
+        sorted_index_to_original_point_id.begin() + n1);
+    auto sorted_index_to_original_point_id2 = parlay::sequence<size_t>(
+        sorted_index_to_original_point_id.begin() + n1,
+        sorted_index_to_original_point_id.end());
+
     std::unique_ptr<RangeFilterTreeIndex<
         T, Point, RangeSpatialIndex, SubsetPointRange<T, Point>, FilterType>>
         index1 = std::make_unique<
             RangeFilterTreeIndex<T, Point, RangeSpatialIndex,
                                  SubsetPointRange<T, Point>, FilterType>>(
-            std::move(points1), filter_values1, this->cutoff, false);
+            std::move(points1), filter_values1, sorted_index_to_original_point_id1, this->cutoff, false);
 
     std::unique_ptr<RangeFilterTreeIndex<
         T, Point, RangeSpatialIndex, SubsetPointRange<T, Point>, FilterType>>
         index2 = std::make_unique<
             RangeFilterTreeIndex<T, Point, RangeSpatialIndex,
                                  SubsetPointRange<T, Point>, FilterType>>(
-            std::move(points2), filter_values2, this->cutoff, false);
+            std::move(points2), filter_values2, sorted_index_to_original_point_id2, this->cutoff, false);
 
     this->children = std::make_pair(std::move(index1), std::move(index2));
 
@@ -206,7 +237,7 @@ struct RangeFilterTreeIndex {
       auto results = orig_serial_query(q, filter, knn);
 
       for (auto j = 0; j < knn; j++) {
-        ids.mutable_at(i, j) = results[j].first;
+        ids.mutable_at(i, j) = sorted_index_to_original_point_id.at(results[j].first);
         dists.mutable_at(i, j) = results[j].second;
       }
     });

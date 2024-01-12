@@ -69,6 +69,7 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
 
     queries = parse_ann_benchmarks_hdf5(data_path)[1]
 
+
     if 'angular' in dataset_name:
         metric = "mips"
         # normalize data
@@ -138,8 +139,8 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
         prefiltering_time = prefiltering_end - prefiltering_start
         print(f"prefiltering time: {prefiltering_time:.3f}s")
 
-        # print(prefilter_results[0][:10])
-        # print(prefilter_results[1][:10])
+        print(prefilter_results[0][:10])
+        print(prefilter_results[1][:10])
 
 
         print("index querying")
@@ -153,7 +154,7 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
         print(range_prefilter_results[1][:10])
 
         print("postfilter querying")
-        query_params = wp.QueryParams(20, 100, 1.35, 10_000_000, 128)
+        query_params = wp.build_query_params(k=10, beam_size=100)
         start = time.time()
         postfilter_results = postfilter.batch_query(queries, filters, queries.shape[0], top_k, query_params)
         end = time.time()
@@ -170,6 +171,8 @@ for dataset_name in ["glove-100-angular", "sift-128-euclidean"]:
         vamana_tree_time = end - start
         print(f"vamana tree time: {vamana_tree_time:.3f}s")
 
+        print(vamana_tree_results[0][:10])
+        print(vamana_tree_results[1][:10])
 
         RAND_QUERY = 9878
         # print(f"filter: {filters[RAND_QUERY]}")

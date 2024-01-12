@@ -47,7 +47,7 @@ def create_dataset(dataset_name, output_dir):
 
     filter_values = np.random.uniform(size=len(data))
 
-    np.save(output_dir / f"{dataset_friendly_name}_filter_values.npy", filter_values)
+    np.save(output_dir / f"{dataset_friendly_name}_filter-values.npy", filter_values)
 
     generate_filters(
         output_dir,

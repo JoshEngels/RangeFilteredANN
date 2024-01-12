@@ -175,13 +175,20 @@ struct PostfilterVamanaIndex {
       const std::vector<std::pair<FilterType, FilterType>> &filters,
       uint64_t num_queries, uint64_t knn,
       QueryParams QP = default_query_params) {
+    // Change params to set k = beamsize
+    QueryParams actual_params = {QP.beamSize, QP.beamSize, QP.cut, QP.limit, QP.degree_limit};
     py::array_t<unsigned int> ids({num_queries, knn});
     py::array_t<float> dists({num_queries, knn});
 
     parlay::parallel_for(0, num_queries, [&](size_t i) {
       Point q = Point(queries.data(i), points->dimension(),
                       points->aligned_dimension(), i);
-      auto frontier = this->query(q, filters[i], QP);
+      parlay::sequence<pid> frontier = {};
+      while (frontier.size() < QP.k && actual_params.beamSize < QP.degree_limit) {
+        frontier = this->query(q, filters[i], actual_params);
+        actual_params.beamSize *= 2;
+        actual_params.k *= 2;
+      }
 
       for (auto j = 0; j < knn; j++) {
         if (j < frontier.size()) {

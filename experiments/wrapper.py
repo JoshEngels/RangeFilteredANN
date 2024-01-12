@@ -287,3 +287,6 @@ def vamana_range_filter_tree_constructor(metric, dtype):
             return VamanaRangeFilterTreeIndexFloatMips
         else:
             raise Exception('Invalid data type ' + dtype)
+        
+def build_query_params(k, beam_size, cut=1.35, limit=10_000_000, beam_size_limit=10000):
+    return QueryParams(k, beam_size, cut, limit, beam_size_limit)
