@@ -22,6 +22,13 @@ INDEX_TYPES = ["IVF_FLAT"]  # , "IVF_PQ", "IVF_SQ8", "HNSW", "SCANN", "DISKANN",
 
 dataset_folder = "/data/parap/storage/jae/filtered_ann_datasets"
 
+def compute_recall(gt_neighbors, results, top_k):
+    recall = 0
+    for i in range(len(gt_neighbors)):  # for each query
+        gt = set(gt_neighbors[i])
+        res = set(results[i][:top_k])
+        recall += len(gt.intersection(res)) / len(gt)
+    return recall / len(gt_neighbors)  # average recall per query
 
 def get_index_params(index_type):
     params = {
@@ -137,32 +144,36 @@ for dataset_name in [
                     dataset_folder, f"{dataset_name}_queries_{filter_width}_ranges.npy"
                 )
             )
-            query_gt = np.load(
-                os.path.join(
-                    dataset_folder, f"{dataset_name}_queries_{filter_width}_gt.npy"
-                )
-            )
-            print(query_filter_ranges.shape)
-            print(query_gt.shape)
-
+            # query_gt = np.load(
+            #     os.path.join(
+            #         dataset_folder, f"{dataset_name}_queries_{filter_width}_gt.npy"
+            #     )
+            # )
+            # print(query_filter_ranges.shape)
+            # print(query_gt.shape)
+            filter_start = query_filter_ranges[0][0]
+            filter_end = query_filter_ranges[0][1]
+            expr = "(priority > %s) && (priority < %s)" % (filter_start, filter_end)
 
             start_time = time.time()
-            # TODO (shangdi): use out filtering range 
+            # TODO (shangdi): use our filtering range 
             result = points.search(
-                queries, "embeddings", search_params, limit=TOP_K, expr="priority > 0.5"
+                queries, "embeddings", search_params, limit=TOP_K, expr=expr
             )  # , output_fields=["priority"]
             end_time = time.time()
             print("search latency = {:.4f}s".format(end_time - start_time))
-
+            results = []
+            for hits in result:
+                result_i = []
+                for hit in hits:
+                    # possible to return less than TOP_K results
+                    result_i.append(hit.id) # , priority field: {hit.entity.get('priority')}
+                results.append(result_i)
+            # TODO (shangdi): compute recall and write csv file
 
         # delete index
+        points.release()
         points.drop_index()
 
     # remove points from database
-    points.release()
     utility.drop_collection("points")
-
-
-# for hits in result:
-#     for hit in hits:
-#         print(f"hit: {hit}")  # , priority field: {hit.entity.get('priority')}
