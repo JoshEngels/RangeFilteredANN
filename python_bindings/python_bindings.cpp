@@ -89,7 +89,7 @@ template <typename T, typename Point> inline void add_variant(py::module_ &m, co
 
     py::class_<PrefilterIndex<T, Point>>(m, ("PrefilterIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>())
-    .def("batch_search", &PrefilterIndex<T, Point>::batch_search, "queries"_a, "filters"_a, "num_queries"_a, "knn"_a);
+    .def("batch_search", &PrefilterIndex<T, Point>::batch_search, "queries"_a, "filters"_a, "num_queries"_a, "QP"_a);
 
     py::class_<RangeFilterTreeIndex<T, Point>>(m, ("RangeFilterTreeIndex" + variant.agnostic_name).c_str())
     .def(py::init<py::array_t<T>,py::array_t<float_t>>())

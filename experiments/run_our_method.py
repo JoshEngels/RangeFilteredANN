@@ -4,6 +4,7 @@ import os
 import wrapper as wp
 import time
 import sys
+import multiprocessing
 
 # Ensure index_cache/postfiler_vamana exists so indices are saved correctly
 os.makedirs("index_cache/postfilter_vamana", exist_ok=True)
@@ -20,7 +21,7 @@ DATASETS = [
 EXPERIMENT_FILTER_WIDTHS = [0.0001, 0.001, 0.01, 0.1, 0.2, 0.5, 1]
 
 TOP_K = 10
-BEAM_SIZES = [10, 20, 40, 80, 160, 320]
+BEAM_SIZES = [10, 20, 40, 80, 160, 320, 640, 1280]
 FINAL_MULTIPLIES = [1, 2, 3, 4, 8, 16, 32]
 
 
@@ -44,14 +45,18 @@ parser.add_argument(
     "--smart-combined", action="store_true", help="Run smart combined experiments"
 )
 parser.add_argument("--all", action="store_true", help="Run all experiments")
+parser.add_argument(
+    "--results_file_prefix", help="Optional prefix to prepend to results files", default=""
+)
 
 args = parser.parse_args()
 
 num_threads = args.threads
-if num_threads is not None:
-    os.environ["PARLAY_NUM_THREADS"] = str(num_threads)
-else:
+if num_threads is None:
     print("NOTE: No number of threads specified, so using all available threads")
+    num_threads = multiprocessing.cpu_count()
+
+os.environ["PARLAY_NUM_THREADS"] = str(num_threads)
 
 run_postfiltering = args.postfiltering or args.all
 run_optimized_postfiltering = args.optimized_postfiltering or args.all
@@ -67,6 +72,7 @@ if not (
     or run_smart_combined
 ):
     print("NOTE: No experiments specified, so aborting")
+    parser.print_help()
     sys.exit(0)
 
 
@@ -80,7 +86,7 @@ def compute_recall(gt_neighbors, results, top_k):
 
 
 for dataset_name in DATASETS:
-    output_file = f"results/{dataset_name}_results.csv"
+    output_file = f"results/{args.results_file_prefix}{dataset_name}_results.csv"
 
     # only write header if file doesn't exist
     if not os.path.exists(output_file):
@@ -148,8 +154,9 @@ for dataset_name in DATASETS:
 
         if run_prefiltering:
             start = time.time()
+            query_params = wp.build_query_params(k=TOP_K, beam_size=0)
             prefilter_results = prefilter_index.batch_search(
-                queries, query_filter_ranges, queries.shape[0], TOP_K
+                queries, query_filter_ranges, queries.shape[0], query_params
             )
             run_results.append(
                 (

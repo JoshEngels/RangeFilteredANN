@@ -308,7 +308,7 @@ def build_query_params(
     cut=1.35,
     limit=10_000_000,
     beam_size_limit=10000,
-    final_beam_multiply=8,
+    final_beam_multiply=1,
     postfiltering_max_beam=10000,
     min_query_to_bucket_ratio=None,
 ):

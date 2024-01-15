@@ -121,7 +121,7 @@ struct RangeFilterTreeIndex {
   NeighborsAndDistances batch_search(
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
       const std::vector<std::pair<FilterType, FilterType>> &filters,
-      uint64_t num_queries, const std::string& query_method, QueryParams qp) {
+      uint64_t num_queries, const std::string &query_method, QueryParams qp) {
     size_t knn = qp.k;
     py::array_t<unsigned int> ids({num_queries, knn});
     py::array_t<float> dists({num_queries, knn});
@@ -131,7 +131,9 @@ struct RangeFilterTreeIndex {
                       _points->aligned_dimension(), i);
       std::pair<FilterType, FilterType> filter = filters[i];
 
-      auto results = query_method == "optimized_postfilter"? optimized_postfiltering_search(q, filter, qp): fenwick_tree_search(q, filter, qp);
+      auto results = query_method == "optimized_postfilter"
+                         ? optimized_postfiltering_search(q, filter, qp)
+                         : fenwick_tree_search(q, filter, qp);
 
       for (auto j = 0; j < knn; j++) {
         if (j < results.size()) {
@@ -365,15 +367,18 @@ private:
       size_t end_bucket = (exclusive_end - 1) / bucket_size;
       if (start_bucket == end_bucket) {
         index_key = {bucket_id, start_bucket};
-        // std::cout << inclusive_start << " " << exclusive_end << " " << bucket_size << " " << start_bucket * bucket_size << std::endl;
+        // std::cout << inclusive_start << " " << exclusive_end << " " <<
+        // bucket_size << " " << start_bucket * bucket_size << std::endl;
         break;
       }
     }
 
-
     auto bucket_size = _bucket_sizes[index_key.first];
-    float bucket_size_to_query_size_ratio = (float) bucket_size / (exclusive_end - inclusive_start);
-    if (qp.min_query_to_bucket_ratio.has_value() && bucket_size_to_query_size_ratio > qp.min_query_to_bucket_ratio.value()) {
+    float bucket_size_to_query_size_ratio =
+        (float)bucket_size / (exclusive_end - inclusive_start);
+    if (qp.min_query_to_bucket_ratio.has_value() &&
+        bucket_size_to_query_size_ratio >
+            qp.min_query_to_bucket_ratio.value()) {
       return fenwick_tree_search(query, range, qp);
     }
 

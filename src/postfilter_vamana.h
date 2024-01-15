@@ -154,21 +154,25 @@ struct PostfilterVamanaIndex {
                                  qp.postfiltering_max_beam,
                                  qp.min_query_to_bucket_ratio};
     parlay::sequence<pid> frontier = {};
-    while (frontier.size() < knn && actual_params.beamSize < qp.postfiltering_max_beam) {
+    while (frontier.size() < knn &&
+           actual_params.beamSize < qp.postfiltering_max_beam) {
       frontier = this->raw_query(q, filter, actual_params);
       actual_params.beamSize *= 2;
       actual_params.k = actual_params.beamSize;
-      // std::cout << "Sizes: " << actual_params.beamSize << " " << frontier.size() << std::endl;
+      // std::cout << "Sizes: " << actual_params.beamSize << " " <<
+      // frontier.size() << std::endl;
     }
-    size_t final_beam_size = std::min<size_t>(
-        actual_params.beamSize * qp.final_beam_multiply, qp.postfiltering_max_beam);
+    size_t final_beam_size =
+        std::min<size_t>(actual_params.beamSize * qp.final_beam_multiply,
+                         qp.postfiltering_max_beam);
 
     if (final_beam_size > actual_params.beamSize) {
       actual_params.beamSize = final_beam_size;
       actual_params.k = final_beam_size;
       frontier = this->raw_query(q, filter, actual_params);
     }
-    // std::cout << "Final sizes: " << actual_params.beamSize << " " << frontier.size() << std::endl;
+    // std::cout << "Final sizes: " << actual_params.beamSize << " " <<
+    // frontier.size() << std::endl;
 
     return frontier;
   }
