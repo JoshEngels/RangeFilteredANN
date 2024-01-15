@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def pareto_front(x, y):
     sorted_indices = sorted(range(len(y)), key=lambda k: -y[k])
     x_sorted = x[sorted_indices]
