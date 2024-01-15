@@ -1,37 +1,73 @@
+import argparse
 import numpy as np
 import os
 import wrapper as wp
 import time
 import sys
 
-
-# Ensure index_cache/postfiler_vamana exists
+# Ensure index_cache/postfiler_vamana exists so indices are saved correctly
 os.makedirs("index_cache/postfilter_vamana", exist_ok=True)
 os.makedirs("results", exist_ok=True)
 
+DATASET_FOLDER = "/data/parap/storage/jae/filtered_ann_datasets"
+DATASETS = [
+    "glove-100-angular",
+    "deep-image-96-angular",
+    "sift-128-euclidean",
+    "redcaps-512-angular",
+]
 
 EXPERIMENT_FILTER_WIDTHS = [0.0001, 0.001, 0.01, 0.1, 0.2, 0.5, 1]
 
-dataset_folder = "/data/parap/storage/jae/filtered_ann_datasets"
-
-
-if len(sys.argv) > 1:
-    THREADS = int(sys.argv[1])
-else:
-    THREADS = 80
-os.environ["PARLAY_NUM_THREADS"] = str(THREADS)
-
-
-# run experiment
 TOP_K = 10
 BEAM_SIZES = [10, 20, 40, 80, 160, 320]
 FINAL_MULTIPLIES = [1, 2, 3, 4, 8, 16, 32]
 
 
-run_postfiltering = True
-run_optimized_postfiltering = True
-run_vamana_tree = True
-run_prefiltering = True
+parser = argparse.ArgumentParser()
+parser.add_argument("--threads", type=int, default=None, help="Number of threads")
+parser.add_argument(
+    "--postfiltering", action="store_true", help="Run postfiltering experiments"
+)
+parser.add_argument(
+    "--optimized-postfiltering",
+    action="store_true",
+    help="Run optimized postfiltering experiments",
+)
+parser.add_argument(
+    "--vamana-tree", action="store_true", help="Run Vamana tree experiments"
+)
+parser.add_argument(
+    "--prefiltering", action="store_true", help="Run prefiltering experiments"
+)
+parser.add_argument(
+    "--smart-combined", action="store_true", help="Run smart combined experiments"
+)
+parser.add_argument("--all", action="store_true", help="Run all experiments")
+
+args = parser.parse_args()
+
+num_threads = args.threads
+if num_threads is not None:
+    os.environ["PARLAY_NUM_THREADS"] = str(num_threads)
+else:
+    print("NOTE: No number of threads specified, so using all available threads")
+
+run_postfiltering = args.postfiltering or args.all
+run_optimized_postfiltering = args.optimized_postfiltering or args.all
+run_vamana_tree = args.vamana_tree or args.all
+run_prefiltering = args.prefiltering or args.all
+run_smart_combined = args.smart_combined or args.all
+
+if not (
+    run_postfiltering
+    or run_optimized_postfiltering
+    or run_vamana_tree
+    or run_prefiltering
+    or run_smart_combined
+):
+    print("NOTE: No experiments specified, so aborting")
+    sys.exit(0)
 
 
 def compute_recall(gt_neighbors, results, top_k):
@@ -43,12 +79,7 @@ def compute_recall(gt_neighbors, results, top_k):
     return recall / len(gt_neighbors)  # average recall per query
 
 
-for dataset_name in [
-    "glove-100-angular",
-    "deep-image-96-angular",
-    "sift-128-euclidean",
-    "redcaps-512-angular",
-]:
+for dataset_name in DATASETS:
     output_file = f"results/{dataset_name}_results.csv"
 
     # only write header if file doesn't exist
@@ -56,13 +87,14 @@ for dataset_name in [
         with open(output_file, "a") as f:
             f.write("filter_width,method,recall,average_time,qps,threads\n")
 
-    data = np.load(os.path.join(dataset_folder, f"{dataset_name}.npy"))
-    queries = np.load(os.path.join(dataset_folder, f"{dataset_name}_queries.npy"))
+    data = np.load(os.path.join(DATASET_FOLDER, f"{dataset_name}.npy"))
+    queries = np.load(os.path.join(DATASET_FOLDER, f"{dataset_name}_queries.npy"))
 
+    # TODO: Remove for final experiments
     queries = queries[:1000]
 
     filter_values = np.load(
-        os.path.join(dataset_folder, f"{dataset_name}_filter-values.npy")
+        os.path.join(DATASET_FOLDER, f"{dataset_name}_filter-values.npy")
     )
 
     metric = "mips" if "angular" in dataset_name else "Euclidian"
@@ -91,7 +123,7 @@ for dataset_name in [
         print(f"Naive postfilter build time: {postfilter_build_time:.3f}s")
 
     # Build Vamana tree index
-    if run_vamana_tree or run_optimized_postfiltering:
+    if run_vamana_tree or run_optimized_postfiltering or run_smart_combined:
         vamana_tree_constructor = wp.vamana_range_filter_tree_constructor(
             metric, "float"
         )
@@ -105,12 +137,12 @@ for dataset_name in [
         run_results = []
         query_filter_ranges = np.load(
             os.path.join(
-                dataset_folder, f"{dataset_name}_queries_{filter_width}_ranges.npy"
+                DATASET_FOLDER, f"{dataset_name}_queries_{filter_width}_ranges.npy"
             )
         )
         query_gt = np.load(
             os.path.join(
-                dataset_folder, f"{dataset_name}_queries_{filter_width}_gt.npy"
+                DATASET_FOLDER, f"{dataset_name}_queries_{filter_width}_gt.npy"
             )
         )
 
@@ -199,8 +231,36 @@ for dataset_name in [
                     )
                     print(run_results[-1])
 
+        if run_smart_combined:
+            for beam_size in BEAM_SIZES:
+                for final_beam_multiply in FINAL_MULTIPLIES:
+                    query_params = wp.build_query_params(
+                        k=TOP_K,
+                        beam_size=beam_size,
+                        final_beam_multiply=final_beam_multiply,
+                        min_query_to_bucket_ratio=0.05,
+                    )
+                    start = time.time()
+                    optimized_postfilter_results = vamana_tree.batch_search(
+                        queries,
+                        query_filter_ranges,
+                        queries.shape[0],
+                        "smart_combined",
+                        query_params,
+                    )
+                    run_results.append(
+                        (
+                            f"smart-combined_{beam_size}_{final_beam_multiply}",
+                            compute_recall(
+                                optimized_postfilter_results[0], query_gt, TOP_K
+                            ),
+                            time.time() - start,
+                        )
+                    )
+                    print(run_results[-1])
+
         with open(output_file, "a") as f:
             for name, recall, total_time in run_results:
                 f.write(
-                    f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{THREADS}\n"
+                    f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{num_threads}\n"
                 )

@@ -160,7 +160,7 @@ PYBIND11_MODULE(window_ann, m)
         .def_readonly("b", &QueryFilter::b);
 
     py::class_<QueryParams>(m, "QueryParams")
-        .def(py::init<long, long, double, long, long, long, long>(), "k"_a, "beam_width"_a, "cut"_a, "limit"_a, "degree_limit"_a, "final_beam_multiply"_a, "postfiltering_max_beam"_a);
+        .def(py::init<long, long, double, long, long, long, long, std::optional<float>>(), "k"_a, "beam_width"_a, "cut"_a, "limit"_a, "degree_limit"_a, "final_beam_multiply"_a, "postfiltering_max_beam"_a, "min_query_to_bucket_ratio"_a);
 
     py::class_<BuildParams>(m, "BuildParams")
         .def(py::init<long, long, double>(), "max_degree"_a, "limit"_a, "alpha"_a);

@@ -151,7 +151,8 @@ struct PostfilterVamanaIndex {
                                  qp.limit,
                                  qp.degree_limit,
                                  qp.final_beam_multiply,
-                                 qp.postfiltering_max_beam};
+                                 qp.postfiltering_max_beam,
+                                 qp.min_query_to_bucket_ratio};
     parlay::sequence<pid> frontier = {};
     while (frontier.size() < knn && actual_params.beamSize < qp.postfiltering_max_beam) {
       frontier = this->raw_query(q, filter, actual_params);

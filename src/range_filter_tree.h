@@ -370,6 +370,13 @@ private:
       }
     }
 
+
+    auto bucket_size = _bucket_sizes[index_key.first];
+    float bucket_size_to_query_size_ratio = (float) bucket_size / (exclusive_end - inclusive_start);
+    if (qp.min_query_to_bucket_ratio.has_value() && bucket_size_to_query_size_ratio > qp.min_query_to_bucket_ratio.value()) {
+      return fenwick_tree_search(query, range, qp);
+    }
+
     return _spatial_indices.at(index_key.first)
         .at(index_key.second)
         ->query(query, range, qp);
