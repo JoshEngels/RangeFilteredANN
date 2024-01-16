@@ -36,8 +36,14 @@ plt.rc(
     "figure", labelsize=BIGGER_SIZE
 )  # fontsize of the x and y labels for the big plots
 
+cmap = plt.get_cmap("tab10")
+next_unused_cmap_index = 0
+cmap_colors = {}
+
 
 def plot(dataset_name):
+    global next_unused_cmap_index
+
     df = pd.read_csv(f"results/{dataset_name}_results.csv")
 
     df["method"] = df["method"].str.split("_").str[0]
@@ -58,6 +64,11 @@ def plot(dataset_name):
     axes = axes.reshape(-1)
 
     for (filter_width, method), group in grouped_data:
+        if method not in cmap_colors:
+            cmap_colors[method] = cmap(next_unused_cmap_index)
+            next_unused_cmap_index += 1
+        color = cmap_colors[method]
+
         ax = axes[df["filter_width"].unique().tolist().index(filter_width)]
         sorted_group = group.sort_values(by="recall", ascending=False)
 
@@ -67,9 +78,9 @@ def plot(dataset_name):
         )
 
         if len(x) == 1:
-            ax.plot(x, y, label=method, markersize=20, marker="x")
+            ax.plot(x, y, label=method, markersize=20, marker="x", color=color)
         else:
-            ax.plot(x, y, label=method)
+            ax.plot(x, y, label=method, color=color)
         ax.set_title(f"Filter Width: {filter_width}")
 
     fig.supxlabel("Recall")

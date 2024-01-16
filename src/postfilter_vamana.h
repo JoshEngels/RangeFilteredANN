@@ -165,6 +165,8 @@ struct PostfilterVamanaIndex {
     size_t final_beam_size =
         std::min<size_t>(actual_params.beamSize * qp.final_beam_multiply,
                          qp.postfiltering_max_beam);
+    // std::cout << qp.beamSize << " " << actual_params.beamSize << " " <<
+    // final_beam_size << std::endl;
 
     if (final_beam_size > actual_params.beamSize) {
       actual_params.beamSize = final_beam_size;

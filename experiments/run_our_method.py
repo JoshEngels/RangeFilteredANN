@@ -44,9 +44,14 @@ parser.add_argument(
 parser.add_argument(
     "--smart-combined", action="store_true", help="Run smart combined experiments"
 )
+parser.add_argument(
+    "--three-split", action="store_true", help="Run three split experiments"
+)
 parser.add_argument("--all", action="store_true", help="Run all experiments")
 parser.add_argument(
-    "--results_file_prefix", help="Optional prefix to prepend to results files", default=""
+    "--results_file_prefix",
+    help="Optional prefix to prepend to results files",
+    default="",
 )
 
 args = parser.parse_args()
@@ -63,6 +68,7 @@ run_optimized_postfiltering = args.optimized_postfiltering or args.all
 run_vamana_tree = args.vamana_tree or args.all
 run_prefiltering = args.prefiltering or args.all
 run_smart_combined = args.smart_combined or args.all
+run_three_split = args.three_split or args.all
 
 if not (
     run_postfiltering
@@ -70,6 +76,7 @@ if not (
     or run_vamana_tree
     or run_prefiltering
     or run_smart_combined
+    or run_three_split
 ):
     print("NOTE: No experiments specified, so aborting")
     parser.print_help()
@@ -84,6 +91,20 @@ def compute_recall(gt_neighbors, results, top_k):
         recall += len(gt.intersection(res)) / len(gt)
     return recall / len(gt_neighbors)  # average recall per query
 
+
+# Returns true if the last two results at this number of multiplies had the exact same recall,
+#  or the last result had a recall of 1.
+def should_break(run_results):
+    if len(run_results) == 0:
+        return False
+    if run_results[-1][1] == 1.0:
+        return True
+    if len(run_results) == 1:
+        return False
+    
+    recalls_equal = run_results[-1][1] == run_results[-2][1]
+    not_one_multiply = run_results[-1][0].split("_")[-1] != "1"
+    return recalls_equal and not_one_multiply
 
 for dataset_name in DATASETS:
     output_file = f"results/{args.results_file_prefix}{dataset_name}_results.csv"
@@ -129,7 +150,12 @@ for dataset_name in DATASETS:
         print(f"Naive postfilter build time: {postfilter_build_time:.3f}s")
 
     # Build Vamana tree index
-    if run_vamana_tree or run_optimized_postfiltering or run_smart_combined:
+    if (
+        run_vamana_tree
+        or run_optimized_postfiltering
+        or run_smart_combined
+        or run_three_split
+    ):
         vamana_tree_constructor = wp.vamana_range_filter_tree_constructor(
             metric, "float"
         )
@@ -210,6 +236,8 @@ for dataset_name in DATASETS:
                         )
                     )
                     print(run_results[-1])
+                    if should_break(run_results):
+                        break
 
         if run_optimized_postfiltering:
             for beam_size in BEAM_SIZES:
@@ -237,6 +265,8 @@ for dataset_name in DATASETS:
                         )
                     )
                     print(run_results[-1])
+                    if should_break(run_results):
+                        break
 
         if run_smart_combined:
             for beam_size in BEAM_SIZES:
@@ -265,6 +295,36 @@ for dataset_name in DATASETS:
                         )
                     )
                     print(run_results[-1])
+                    if should_break(run_results):
+                        break
+
+        if run_three_split:
+            for beam_size in BEAM_SIZES:
+                for final_beam_multiply in FINAL_MULTIPLIES:
+                    start = time.time()
+                    query_params = wp.build_query_params(
+                        k=TOP_K,
+                        beam_size=beam_size,
+                        final_beam_multiply=final_beam_multiply,
+                        min_query_to_bucket_ratio=0.05,
+                    )
+                    vamana_tree_results = vamana_tree.batch_search(
+                        queries,
+                        query_filter_ranges,
+                        queries.shape[0],
+                        "three_split",
+                        query_params,
+                    )
+                    run_results.append(
+                        (
+                            f"three-split_{beam_size}_{final_beam_multiply}",
+                            compute_recall(vamana_tree_results[0], query_gt, TOP_K),
+                            time.time() - start,
+                        )
+                    )
+                    print(run_results[-1])
+                    if should_break(run_results):
+                        break
 
         with open(output_file, "a") as f:
             for name, recall, total_time in run_results:

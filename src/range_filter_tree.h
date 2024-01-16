@@ -1,5 +1,6 @@
 #pragma once
 
+#include "algorithms/utils/types.h"
 #include "parlay/parallel.h"
 #include "parlay/primitives.h"
 #include "parlay/sequence.h"
@@ -52,6 +53,8 @@ struct RangeFilterTreeIndex {
 
   using SpatialIndex = RangeSpatialIndex<T, Point, SubsetRange>;
   using SpatialIndexPtr = std::unique_ptr<SpatialIndex>;
+
+  using FilterRange = std::pair<FilterType, FilterType>;
 
   // This constructor just sorts the input points and turns them into a
   // structure that's easier to work with. The actual work of building the index
@@ -120,8 +123,8 @@ struct RangeFilterTreeIndex {
   /* the bounds here are inclusive */
   NeighborsAndDistances batch_search(
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
-      const std::vector<std::pair<FilterType, FilterType>> &filters,
-      uint64_t num_queries, const std::string &query_method, QueryParams qp) {
+      const std::vector<FilterRange> &filters, uint64_t num_queries,
+      const std::string &query_method, QueryParams qp) {
     size_t knn = qp.k;
     py::array_t<unsigned int> ids({num_queries, knn});
     py::array_t<float> dists({num_queries, knn});
@@ -129,11 +132,16 @@ struct RangeFilterTreeIndex {
     parlay::parallel_for(0, num_queries, [&](auto i) {
       Point q = Point(queries.data(i), _points->dimension(),
                       _points->aligned_dimension(), i);
-      std::pair<FilterType, FilterType> filter = filters[i];
+      FilterRange filter = filters[i];
 
-      auto results = query_method == "optimized_postfilter"
-                         ? optimized_postfiltering_search(q, filter, qp)
-                         : fenwick_tree_search(q, filter, qp);
+      parlay::sequence<pid> results;
+      if (query_method == "optimized_postfilter") {
+        results = optimized_postfiltering_search(q, filter, qp);
+      } else if (query_method == "three_split") {
+        results = three_split_search(q, filter, qp);
+      } else {
+        results = fenwick_tree_search(q, filter, qp);
+      }
 
       for (auto j = 0; j < knn; j++) {
         if (j < results.size()) {
@@ -150,9 +158,9 @@ struct RangeFilterTreeIndex {
   }
 
   /* not really needed but just to highlight it */
-  inline parlay::sequence<pid>
-  self_query(const Point &query, const std::pair<FilterType, FilterType> &range,
-             uint64_t knn, QueryParams qp) {
+  inline parlay::sequence<pid> self_query(const Point &query,
+                                          const FilterRange &range,
+                                          uint64_t knn, QueryParams qp) {
     // Ensure that qp knn is correct, in case we are using a default qp
     // TODO: Just remove knn
     qp.k = knn;
@@ -237,7 +245,7 @@ private:
     }
   }
 
-  bool check_empty(const std::pair<FilterType, FilterType> &range) {
+  bool check_empty(const FilterRange &range) {
     bool empty = range.second < _filter_values.front() ||
                  range.first > _filter_values.back();
     if (empty) {
@@ -252,10 +260,9 @@ private:
   }
 
   // Returns uncoverted ids
-  parlay::sequence<pid>
-  fenwick_tree_search(const Point &query,
-                      const std::pair<FilterType, FilterType> &range,
-                      QueryParams qp) {
+  parlay::sequence<pid> fenwick_tree_search(const Point &query,
+                                            const FilterRange &range,
+                                            QueryParams qp) {
     // if the query range is entirely outside the index range, return
     if (check_empty(range)) {
       return parlay::sequence<pid>();
@@ -345,10 +352,9 @@ private:
     return frontier;
   }
 
-  parlay::sequence<pid>
-  optimized_postfiltering_search(const Point &query,
-                                 const std::pair<FilterType, FilterType> &range,
-                                 QueryParams qp) {
+  parlay::sequence<pid> optimized_postfiltering_search(const Point &query,
+                                                       const FilterRange &range,
+                                                       QueryParams qp) {
 
     // if the query range is entirely outside the index range, return
     if (check_empty(range)) {
@@ -359,6 +365,10 @@ private:
 
     auto inclusive_start = first_greater_than(range.first);
     auto exclusive_end = first_greater_than_or_equal_to(range.second);
+
+    if (4 * (exclusive_end - inclusive_start) < _cutoff) {
+      return fenwick_tree_search(query, range, qp);
+    }
 
     std::pair<size_t, size_t> index_key;
     for (int64_t bucket_id = 0; bucket_id < _bucket_sizes.size(); bucket_id++) {
@@ -385,5 +395,104 @@ private:
     return _spatial_indices.at(index_key.first)
         .at(index_key.second)
         ->query(query, range, qp);
+  }
+
+  parlay::sequence<pid> three_split_search(const Point &query,
+                                           const FilterRange &filter_range,
+                                           QueryParams qp) {
+
+    auto inclusive_start = first_greater_than(filter_range.first);
+    auto exclusive_end = first_greater_than_or_equal_to(filter_range.second);
+
+    std::optional<std::pair<size_t, size_t>> index_to_search = std::nullopt;
+
+    for (int64_t bucket_size_index = _bucket_sizes.size() - 1;
+         bucket_size_index >= 0; bucket_size_index--) {
+
+      size_t current_bucket_size = _bucket_sizes[bucket_size_index];
+
+      size_t min_possible_bucket_index_inclusive =
+          inclusive_start / current_bucket_size;
+      size_t max_possible_bucket_index_exclusive =
+          exclusive_end / current_bucket_size;
+
+      for (size_t possible_bucket_index = min_possible_bucket_index_inclusive;
+           possible_bucket_index < max_possible_bucket_index_exclusive;
+           possible_bucket_index++) {
+        size_t bucket_start = possible_bucket_index * current_bucket_size;
+        size_t bucket_end =
+            std::min(bucket_start + current_bucket_size, _points->size());
+        if (bucket_start >= inclusive_start && bucket_end <= exclusive_end) {
+          index_to_search =
+              std::make_pair(bucket_size_index, possible_bucket_index);
+          goto loop_done;
+        }
+      }
+    }
+
+  loop_done:
+
+    if (!index_to_search.has_value()) {
+      return fenwick_tree_search(query, filter_range, qp);
+    }
+
+    std::vector<parlay::sequence<pid>> frontiers;
+    auto bucket_size_index = index_to_search->first;
+    auto bucket_index = index_to_search->second;
+    // Force final_beam_multiply to be 1
+    QueryParams qp_copy = {qp.k,
+                           qp.beamSize,
+                           qp.cut,
+                           qp.limit,
+                           qp.degree_limit,
+                           1,
+                           qp.postfiltering_max_beam,
+                           qp.min_query_to_bucket_ratio};
+
+    // std::cout << "Center" << std::endl;
+    frontiers.push_back(_spatial_indices.at(bucket_size_index)
+                            .at(bucket_index)
+                            ->query(query, filter_range, qp_copy));
+
+    auto middle_start = bucket_index * _bucket_sizes[bucket_size_index];
+    auto middle_end = std::min(middle_start + _bucket_sizes[bucket_size_index],
+                               _points->size());
+    size_t left_space = middle_start - inclusive_start;
+    size_t right_space = exclusive_end - middle_end;
+
+    // std::cout << "Left" << std::endl;
+    // std::cout << inclusive_start << " " << middle_start << std::endl;
+    if (left_space > 0) {
+      FilterRange left_filter_range =
+          std::make_pair(filter_range.first, _filter_values[middle_start]);
+      frontiers.push_back(
+          optimized_postfiltering_search(query, left_filter_range, qp));
+    }
+
+    // std::cout << "Right" << std::endl;
+    // std::cout << middle_end << " " << exclusive_end << std::endl;
+    if (right_space > 0) {
+      FilterRange right_filter_range =
+          std::make_pair(_filter_values[middle_end], filter_range.second);
+      frontiers.push_back(
+          optimized_postfiltering_search(query, right_filter_range, qp));
+    }
+
+    parlay::sequence<pid> frontier;
+
+    for (auto part_frontier : frontiers) {
+      for (auto pid : part_frontier) {
+        frontier.push_back(pid);
+      }
+    }
+
+    parlay::sort_inplace(frontier,
+                         [&](auto a, auto b) { return a.second < b.second; });
+
+    if (frontier.size() > qp.k) {
+      frontier.pop_tail(frontier.size() - qp.k);
+    }
+
+    return frontier;
   }
 };
