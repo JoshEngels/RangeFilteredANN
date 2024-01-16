@@ -93,7 +93,9 @@ def compute_recall(gt_neighbors, results, top_k):
 
 
 # Returns true if the last two results at this number of multiplies had the exact same recall,
-#  or the last result had a recall of 1.
+# or the last result had a recall of 1, or the last result took longer than the last prefiltering
+# step, if such a step exists. 
+# We might remove this function for final experiments.
 def should_break(run_results):
     if len(run_results) == 0:
         return False
@@ -102,9 +104,13 @@ def should_break(run_results):
     if len(run_results) == 1:
         return False
     
+    last_prefilter_time = [x for x in run_results if x[0] == "prefiltering"][-1][2]
+
     recalls_equal = run_results[-1][1] == run_results[-2][1]
-    not_one_multiply = run_results[-1][0].split("_")[-1] != "1"
-    return recalls_equal and not_one_multiply
+    one_multiply = run_results[-1][0].split("_")[-1] == "1"
+    slower_than_prefilter = run_results[-1][2] > last_prefilter_time
+
+    return (recalls_equal and not one_multiply) or slower_than_prefilter
 
 for dataset_name in DATASETS:
     output_file = f"results/{args.results_file_prefix}{dataset_name}_results.csv"

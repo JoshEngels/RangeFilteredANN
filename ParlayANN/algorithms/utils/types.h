@@ -117,11 +117,20 @@ struct QueryParams{
   long final_beam_multiply = 8; // Only for postfiltering
   long postfiltering_max_beam = 10000; // Only for postfiltering
   std::optional<float> min_query_to_bucket_ratio = std::nullopt; // Only for postfiltering
+  bool verbose = false;
 
-  QueryParams(long k, long Q, double cut, long limit, long dg) : k(k), beamSize(Q), cut(cut), limit(limit), degree_limit(dg) {}
+  QueryParams(long k, long Q, double cut, long limit, long dg)
+      : k(k), beamSize(Q), cut(cut), limit(limit), degree_limit(dg) {}
 
-  QueryParams(long k, long Q, double cut, long limit, long dg, long final_beam_multiply, long postfiltering_max_beam, std::optional<float> min_query_to_bucket_ratio) : k(k), beamSize(Q), cut(cut), limit(limit), degree_limit(dg), final_beam_multiply(final_beam_multiply), postfiltering_max_beam(postfiltering_max_beam), min_query_to_bucket_ratio(min_query_to_bucket_ratio) {}
-
+  QueryParams(long k, long Q, double cut, long limit, long dg,
+              long final_beam_multiply, long postfiltering_max_beam,
+              std::optional<float> min_query_to_bucket_ratio, bool verbose)
+      : k(k), beamSize(Q), cut(cut), limit(limit), degree_limit(dg),
+        final_beam_multiply(final_beam_multiply),
+        postfiltering_max_beam(postfiltering_max_beam),
+        min_query_to_bucket_ratio(min_query_to_bucket_ratio), verbose(verbose) {
+  }
+  
   QueryParams() {}
 
 };

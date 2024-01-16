@@ -377,8 +377,14 @@ private:
       size_t end_bucket = (exclusive_end - 1) / bucket_size;
       if (start_bucket == end_bucket) {
         index_key = {bucket_id, start_bucket};
-        // std::cout << inclusive_start << " " << exclusive_end << " " <<
-        // bucket_size << " " << start_bucket * bucket_size << std::endl;
+        if (qp.verbose) {
+          std::cout << "Query range = (" << inclusive_start << ","
+                    << exclusive_end << "), smallest containing range (size "
+                    << bucket_size << ") = (" << start_bucket * bucket_size
+                    << "," << bucket_size + start_bucket * bucket_size << ")"
+                    << std::endl;
+        }
+
         break;
       }
     }
