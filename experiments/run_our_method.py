@@ -61,7 +61,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--experiment_filter_width",
-    type=float,
+    type=str,
     help=f"Optional experiment filter size to use for experiments. Default of None corresponds to do all of {EXPERIMENT_FILTER_WIDTHS}",
     default=None,
 )
