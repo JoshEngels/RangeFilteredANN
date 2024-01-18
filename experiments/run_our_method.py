@@ -53,15 +53,56 @@ parser.add_argument(
     help="Optional prefix to prepend to results files",
     default="",
 )
-
+parser.add_argument(
+    "--beam_search_size",
+    type=int,
+    help=f"Optional beam size to use for experiments. Default of None corresponds to do all of {BEAM_SIZES}",
+    default=None,
+)
+parser.add_argument(
+    "--experiment_filter_width",
+    type=int,
+    help=f"Optional experiment filter size to use for experiments. Default of None corresponds to do all of {EXPERIMENT_FILTER_WIDTHS}",
+    default=None,
+)
+parser.add_argument(
+    "--num_final_multiplies",
+    type=int,
+    help=f"Optional number of final multiplies to use for experiments. Default of None corresponds to do all of {FINAL_MULTIPLIES}",
+    default=None,
+)
+parser.add_argument(
+    "--dataset",
+    type=str,
+    help=f"Optional dataset to use for experiments. Default of None corresponds to do all of {DATASETS}",
+    default=None,
+)
+parser.add_argument(
+    "--verbose",
+    action="store_true",
+    help="Whether to run queries with the verbose flag",
+)
+parser.add_argument(
+    "--dont_write_to_results_file",
+    action="store_true",
+    help="If included, won't write to a results file and will just print results",
+)
 args = parser.parse_args()
 
 num_threads = args.threads
 if num_threads is None:
     print("NOTE: No number of threads specified, so using all available threads")
     num_threads = multiprocessing.cpu_count()
-
 os.environ["PARLAY_NUM_THREADS"] = str(num_threads)
+
+if args.beam_search_size is not None:
+    BEAM_SIZES = [args.beam_search_size]
+if args.experiment_filter_width is not None:
+    EXPERIMENT_FILTER_WIDTHS = [args.experiment_filter_width]
+if args.num_final_multiplies is not None:
+    FINAL_MULTIPLIES = [args.num_final_multiplies]
+if args.dataset is not None:
+    DATASETS = [args.dataset]
 
 run_postfiltering = args.postfiltering or args.all
 run_optimized_postfiltering = args.optimized_postfiltering or args.all
@@ -82,6 +123,8 @@ if not (
     parser.print_help()
     sys.exit(0)
 
+VERBOSE = args.verbose
+
 
 def compute_recall(gt_neighbors, results, top_k):
     recall = 0
@@ -94,7 +137,7 @@ def compute_recall(gt_neighbors, results, top_k):
 
 # Returns true if the last two results at this number of multiplies had the exact same recall,
 # or the last result had a recall of 1, or the last result took longer than the last prefiltering
-# step, if such a step exists. 
+# step, if such a step exists.
 # We might remove this function for final experiments.
 def should_break(run_results):
     if len(run_results) == 0:
@@ -103,14 +146,18 @@ def should_break(run_results):
         return True
     if len(run_results) == 1:
         return False
-    
-    last_prefilter_time = [x for x in run_results if x[0] == "prefiltering"][-1][2]
+
+    prefiltering_results = [x for x in run_results if x[0] == "prefiltering"]
+    if len(prefiltering_results) == 0:
+        return False
+    last_prefilter_time = prefiltering_results[-1][2]
 
     recalls_equal = run_results[-1][1] == run_results[-2][1]
     one_multiply = run_results[-1][0].split("_")[-1] == "1"
     slower_than_prefilter = run_results[-1][2] > last_prefilter_time
 
     return (recalls_equal and not one_multiply) or slower_than_prefilter
+
 
 for dataset_name in DATASETS:
     output_file = f"results/{args.results_file_prefix}{dataset_name}_results.csv"
@@ -143,6 +190,7 @@ for dataset_name in DATASETS:
 
     # Build postfilter index
     if run_postfiltering:
+        # TODO: Add different alpha in build params
         build_params = wp.BuildParams(64, 500, 1.175)
         postfilter_constructor = wp.postfilter_vamana_constructor(metric, "float")
         postfilter_build_start = time.time()
@@ -186,7 +234,7 @@ for dataset_name in DATASETS:
 
         if run_prefiltering:
             start = time.time()
-            query_params = wp.build_query_params(k=TOP_K, beam_size=0)
+            query_params = wp.build_query_params(k=TOP_K, beam_size=0, verbose=VERBOSE)
             prefilter_results = prefilter_index.batch_search(
                 queries, query_filter_ranges, queries.shape[0], query_params
             )
@@ -202,7 +250,9 @@ for dataset_name in DATASETS:
         if run_vamana_tree:
             for beam_size in BEAM_SIZES:
                 start = time.time()
-                query_params = wp.build_query_params(k=TOP_K, beam_size=beam_size)
+                query_params = wp.build_query_params(
+                    k=TOP_K, beam_size=beam_size, verbose=VERBOSE
+                )
                 vamana_tree_results = vamana_tree.batch_search(
                     queries,
                     query_filter_ranges,
@@ -226,6 +276,7 @@ for dataset_name in DATASETS:
                         k=TOP_K,
                         beam_size=beam_size,
                         final_beam_multiply=final_beam_multiply,
+                        verbose=VERBOSE,
                     )
                     start = time.time()
                     postfilter_results = postfilter.batch_search(
@@ -252,6 +303,7 @@ for dataset_name in DATASETS:
                         k=TOP_K,
                         beam_size=beam_size,
                         final_beam_multiply=final_beam_multiply,
+                        verbose=VERBOSE,
                     )
                     start = time.time()
                     optimized_postfilter_results = vamana_tree.batch_search(
@@ -282,7 +334,9 @@ for dataset_name in DATASETS:
                         beam_size=beam_size,
                         final_beam_multiply=final_beam_multiply,
                         min_query_to_bucket_ratio=0.05,
+                        verbose=VERBOSE,
                     )
+
                     start = time.time()
                     optimized_postfilter_results = vamana_tree.batch_search(
                         queries,
@@ -313,6 +367,7 @@ for dataset_name in DATASETS:
                         beam_size=beam_size,
                         final_beam_multiply=final_beam_multiply,
                         min_query_to_bucket_ratio=0.05,
+                        verbose=VERBOSE,
                     )
                     vamana_tree_results = vamana_tree.batch_search(
                         queries,
@@ -332,8 +387,9 @@ for dataset_name in DATASETS:
                     if should_break(run_results):
                         break
 
-        with open(output_file, "a") as f:
-            for name, recall, total_time in run_results:
-                f.write(
-                    f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{num_threads}\n"
-                )
+        if not args.dont_write_to_results_file:
+            with open(output_file, "a") as f:
+                for name, recall, total_time in run_results:
+                    f.write(
+                        f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{num_threads}\n"
+                    )

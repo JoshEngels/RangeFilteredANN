@@ -152,29 +152,39 @@ struct PostfilterVamanaIndex {
                                  qp.degree_limit,
                                  qp.final_beam_multiply,
                                  qp.postfiltering_max_beam,
-                                 qp.min_query_to_bucket_ratio};
+                                 qp.min_query_to_bucket_ratio,
+                                 qp.verbose};
     parlay::sequence<pid> frontier = {};
+    if (qp.verbose) {
+      std::cout << "Starting optimized postfiltering, beam size = "
+                << actual_params.beamSize << ", k = " << knn
+                << ", final multiply = " << qp.final_beam_multiply << ", n = " << filter_values.size() << std::endl;
+    }
     while (frontier.size() < knn &&
            actual_params.beamSize < qp.postfiltering_max_beam) {
       frontier = this->raw_query(q, filter, actual_params);
-      actual_params.beamSize *= 2;
-      actual_params.k = actual_params.beamSize;
-      // std::cout << "Sizes: " << actual_params.beamSize << " " <<
-      // frontier.size() << std::endl;
+      if (qp.verbose) {
+        std::cout << "Finished a double, frontier size = " << frontier.size()
+                  << ", beam size = " << actual_params.beamSize << std::endl;
+      }
+      if (frontier.size() < knn) {
+        actual_params.beamSize *= 2;
+        actual_params.k = actual_params.beamSize;
+      }
     }
     size_t final_beam_size =
         std::min<size_t>(actual_params.beamSize * qp.final_beam_multiply,
                          qp.postfiltering_max_beam);
-    // std::cout << qp.beamSize << " " << actual_params.beamSize << " " <<
-    // final_beam_size << std::endl;
 
     if (final_beam_size > actual_params.beamSize) {
       actual_params.beamSize = final_beam_size;
       actual_params.k = final_beam_size;
       frontier = this->raw_query(q, filter, actual_params);
     }
-    // std::cout << "Final sizes: " << actual_params.beamSize << " " <<
-    // frontier.size() << std::endl;
+    if (qp.verbose) {
+      std::cout << "Final frontier size = " << frontier.size()
+                << ", final beam size " << actual_params.beamSize << std::endl;
+    }
 
     return frontier;
   }
@@ -219,6 +229,9 @@ private:
         beam_search<Point, PR, index_type>(q, this->G, *(this->points), 0, qp);
     // auto [frontier, visited] = pairElts;
     auto frontier = pairElts.first;
+    if (qp.verbose) {
+      std::cout << "Unfiltered return = " << frontier.size() << std::endl; 
+    }
 
     if constexpr (std::is_same<PR, PointRange<T, Point>>::value) {
       frontier = parlay::filter(frontier, [&](pid &p) {

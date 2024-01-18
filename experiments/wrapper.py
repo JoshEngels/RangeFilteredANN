@@ -307,20 +307,20 @@ def build_query_params(
     beam_size,
     cut=1.35,
     limit=10_000_000,
-    beam_size_limit=10000,
+    degree_limit=10_000,
     final_beam_multiply=1,
     postfiltering_max_beam=10000,
     min_query_to_bucket_ratio=None,
-    verbose=False
+    verbose=False,
 ):
     return QueryParams(
         k,
         beam_size,
         cut,
         limit,
-        beam_size_limit,
+        degree_limit,
         final_beam_multiply,
         postfiltering_max_beam,
         min_query_to_bucket_ratio,
-        verbose
+        verbose,
     )

@@ -453,7 +453,8 @@ private:
                            qp.degree_limit,
                            1,
                            qp.postfiltering_max_beam,
-                           qp.min_query_to_bucket_ratio};
+                           qp.min_query_to_bucket_ratio,
+                           qp.verbose};
 
     // std::cout << "Center" << std::endl;
     frontiers.push_back(_spatial_indices.at(bucket_size_index)
