@@ -344,7 +344,7 @@ for dataset_name in DATASETS:
                     )
 
                     start = time.time()
-                    optimized_postfilter_results = vamana_tree.batch_search(
+                    smart_combined_results = vamana_tree.batch_search(
                         queries,
                         query_filter_ranges,
                         queries.shape[0],
@@ -355,7 +355,7 @@ for dataset_name in DATASETS:
                         (
                             f"smart-combined_{beam_size}_{final_beam_multiply}",
                             compute_recall(
-                                optimized_postfilter_results[0], query_gt, TOP_K
+                                smart_combined_results[0], query_gt, TOP_K
                             ),
                             time.time() - start,
                         )
@@ -375,7 +375,7 @@ for dataset_name in DATASETS:
                         min_query_to_bucket_ratio=0.05,
                         verbose=VERBOSE,
                     )
-                    vamana_tree_results = vamana_tree.batch_search(
+                    three_split_tree_results = vamana_tree.batch_search(
                         queries,
                         query_filter_ranges,
                         queries.shape[0],
@@ -385,7 +385,7 @@ for dataset_name in DATASETS:
                     run_results.append(
                         (
                             f"three-split_{beam_size}_{final_beam_multiply}",
-                            compute_recall(vamana_tree_results[0], query_gt, TOP_K),
+                            compute_recall(three_split_tree_results[0], query_gt, TOP_K),
                             time.time() - start,
                         )
                     )

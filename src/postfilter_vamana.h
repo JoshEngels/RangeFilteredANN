@@ -26,8 +26,6 @@ namespace py = pybind11;
 using NeighborsAndDistances =
     std::pair<py::array_t<unsigned int>, py::array_t<float>>;
 
-QueryParams default_query_params = QueryParams(20, 100, 1.35, 10'000'000, 128);
-
 BuildParams default_build_params = BuildParams(64, 500, 1.175);
 
 template <typename T, typename Point, class PR = PointRange<T, Point>,
