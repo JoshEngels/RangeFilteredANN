@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -55,13 +56,14 @@ struct RangeFilterTreeIndex {
   using SpatialIndexPtr = std::unique_ptr<SpatialIndex>;
 
   using FilterRange = std::pair<FilterType, FilterType>;
+  using FilterList = parlay::sequence<FilterType>;
 
   // This constructor just sorts the input points and turns them into a
   // structure that's easier to work with. The actual work of building the index
   // happens in the private constructor below.
   RangeFilterTreeIndex(py::array_t<T> points,
                        py::array_t<FilterType> filter_values,
-                       int32_t cutoff = 1000) {
+                       int32_t cutoff = 1000, size_t split_factor = 2) {
     py::buffer_info points_buf = points.request();
     if (points_buf.ndim != 2) {
       throw std::runtime_error("points numpy array must be 2-dimensional");
@@ -82,9 +84,8 @@ struct RangeFilterTreeIndex {
     FilterType *filter_values_data =
         static_cast<FilterType *>(filter_values_buf.ptr);
 
-    parlay::sequence<FilterType> filter_values_seq =
-        parlay::sequence<FilterType>(filter_values_data,
-                                     filter_values_data + n);
+    FilterList filter_values_seq =
+        FilterList(filter_values_data, filter_values_data + n);
 
     auto filter_indices_sorted =
         parlay::tabulate(n, [](index_type i) { return i; });
@@ -106,7 +107,7 @@ struct RangeFilterTreeIndex {
       decoding.at(sorted_id) = filter_indices_sorted.at(sorted_id);
     });
 
-    auto filter_values_sorted = parlay::sequence<FilterType>(n);
+    auto filter_values_sorted = FilterList(n);
     parlay::parallel_for(0, n, [&](auto i) {
       filter_values_sorted.at(i) =
           filter_values_seq.at(filter_indices_sorted.at(i));
@@ -117,7 +118,7 @@ struct RangeFilterTreeIndex {
 
     *this = RangeFilterTreeIndex<T, Point, RangeSpatialIndex, FilterType>(
         std::make_unique<PR>(point_range), filter_values_sorted, decoding,
-        cutoff, true);
+        cutoff, split_factor);
   }
 
   /* the bounds here are inclusive */
@@ -196,52 +197,97 @@ struct RangeFilterTreeIndex {
   }
 
 private:
-  std::vector<size_t> _bucket_sizes;
-  std::vector<std::vector<size_t>> _starts;
+  // Inclusive starts, exclusive ends
+  // Goes largest to smallest, row i contains buckets of size _bucket_offsets[1]
+  // + or - 1 (but not both)
+  std::vector<std::vector<size_t>> _bucket_offsets;
   std::vector<std::vector<SpatialIndexPtr>> _spatial_indices;
 
   parlay::sequence<size_t> _sorted_index_to_original_point_id;
 
-  parlay::sequence<FilterType> _filter_values;
+  FilterList _filter_values;
 
   int32_t _cutoff = 1000;
 
   std::unique_ptr<PR> _points;
 
+  size_t _split_factor;
+
+  static SpatialIndexPtr create_index(FilterList &filter_values, size_t start,
+                                      size_t end, PR *points) {
+    auto filter_length = end - start;
+    parlay::sequence<int32_t> subset_of_indices = parlay::tabulate<int32_t>(
+        filter_length, [&](auto i) { return i + start; });
+    SubsetRangePtr subset_points = points->make_subset(subset_of_indices);
+    FilterList subset_of_filter_values =
+        FilterList(filter_values.begin() + start, filter_values.begin() + end);
+
+    return std::make_unique<SpatialIndex>(std::move(subset_points),
+                                          subset_of_filter_values);
+  }
+
   RangeFilterTreeIndex(std::unique_ptr<PR> points,
-                       const parlay::sequence<FilterType> &filter_values,
+                       const FilterList &filter_values,
                        const parlay::sequence<size_t> &decoding,
-                       int32_t cutoff = 1000, bool recurse = true)
+                       int32_t cutoff = 1000, size_t split_factor = 2)
       : _sorted_index_to_original_point_id(decoding), _cutoff(cutoff),
-        _filter_values(filter_values), _points(std::move(points)) {
+        _filter_values(filter_values), _points(std::move(points)),
+        _split_factor(split_factor) {
 
     auto n = _points->size();
 
-    // TODO: Make this parallel once it works
+    _spatial_indices.push_back(std::vector<SpatialIndexPtr>(1));
+    _spatial_indices.at(0).at(0) =
+        create_index(_filter_values, 0, _filter_values.size(), _points.get());
+    _bucket_offsets.push_back({0, _filter_values.size()});
+
+    // TODO: Parallelize the outer loop?
     // TODO: Be able to pass in index location
-    size_t current_filter_size = cutoff;
-    while (current_filter_size < 2 * n) {
-      _bucket_sizes.push_back(current_filter_size);
-      size_t num_buckets = (n + current_filter_size - 1) / current_filter_size;
-      _spatial_indices.push_back(std::vector<SpatialIndexPtr>(num_buckets));
-      _starts.push_back(std::vector<size_t>(num_buckets));
-      parlay::parallel_for(0, num_buckets, [&](auto bucket_id) {
-        // for (size_t bucket_id = 0; bucket_id < num_buckets; bucket_id++) {
-        size_t start = bucket_id * current_filter_size;
-        auto this_filter_size = std::min(current_filter_size, n - start);
-        _starts.at(_starts.size() - 1).at(bucket_id) = start;
-        parlay::sequence<int32_t> subset_of_indices = parlay::tabulate<int32_t>(
-            this_filter_size, [&](auto i) { return i + start; });
-        SubsetRangePtr subset_points = _points->make_subset(subset_of_indices);
-        parlay::sequence<FilterType> subset_of_filter_values =
-            parlay::sequence<FilterType>(_filter_values.begin() + start,
-                                         _filter_values.begin() + start +
-                                             this_filter_size);
-        _spatial_indices.at(_spatial_indices.size() - 1).at(bucket_id) =
-            std::make_unique<SpatialIndex>(std::move(subset_points),
-                                           subset_of_filter_values);
+
+    while (_bucket_offsets.back().at(1) > cutoff) {
+
+      std::cout << "HERE: " << _bucket_offsets.back().size() << " "
+                << _bucket_offsets.back().at(1) << std::endl;
+
+      auto last_num_buckets = _spatial_indices.back().size();
+      _bucket_offsets.push_back(
+          std::vector<size_t>(last_num_buckets * _split_factor + 1));
+      _bucket_offsets.back().back() = _filter_values.size();
+      _spatial_indices.push_back(
+          std::vector<SpatialIndexPtr>(last_num_buckets * _split_factor));
+
+      std::cout << "Parallelizing over " << last_num_buckets << std::endl;
+      parlay::parallel_for(0, last_num_buckets, [&](auto last_bucket_id) {
+        auto last_start =
+            _bucket_offsets.at(_bucket_offsets.size() - 2).at(last_bucket_id);
+        auto last_end = _bucket_offsets.at(_bucket_offsets.size() - 2)
+                            .at(last_bucket_id + 1);
+        auto last_size = last_end - last_start;
+
+        auto large_bucket_size =
+            (last_size + _split_factor - 1) / _split_factor;
+        auto small_bucket_size = large_bucket_size - 1;
+        auto num_larger_buckets = last_size - small_bucket_size * _split_factor;
+
+        parlay::parallel_for(0, num_larger_buckets, [&](auto i) {
+          auto start = last_start + i * large_bucket_size;
+          auto end = start + large_bucket_size;
+          _bucket_offsets.back().at(last_bucket_id * _split_factor + i) = start;
+          _spatial_indices.back().at(last_bucket_id * _split_factor + i) =
+              create_index(_filter_values, start, end, _points.get());
+          std::cout << "start = " << start << ", end = " << end << std::endl;
+        });
+
+        parlay::parallel_for(num_larger_buckets, _split_factor, [&](auto i) {
+          auto start = last_start + num_larger_buckets * large_bucket_size +
+                       (i - num_larger_buckets) * small_bucket_size;
+          auto end = start + small_bucket_size;
+          _bucket_offsets.back().at(last_bucket_id * _split_factor + i) = start;
+          _spatial_indices.back().at(last_bucket_id * _split_factor + i) =
+              create_index(_filter_values, start, end, _points.get());
+          std::cout << "start = " << start << ", end = " << end << std::endl;
+        });
       });
-      current_filter_size *= 2;
     }
   }
 
@@ -259,11 +305,110 @@ private:
     return empty;
   }
 
-  // Returns uncoverted ids
+  parlay::sequence<pid> optimized_postfiltering_search(const Point &query,
+                                                       const FilterRange &range,
+                                                       QueryParams qp) {
+
+    return {};
+  }
+
+  parlay::sequence<pid> three_split_search(const Point &query,
+                                           const FilterRange &filter_range,
+                                           QueryParams qp) {
+    return {};
+  }
+
+  struct SequentialBuckets {
+    size_t bucket_row;
+    size_t bucket_start_index;
+    size_t bucket_end_index;
+    size_t start_filter_cover;
+    size_t end_filter_cover;
+  };
+
+  size_t find_range_containing_index(size_t bucket_row, size_t index) {
+    size_t left = 0;
+    size_t right = _bucket_offsets[bucket_row].size() - 1;
+
+    while (left < right) {
+      size_t mid = (left + right) / 2;
+
+      if (index >= _bucket_offsets[bucket_row][mid] &&
+          index < _bucket_offsets[bucket_row][mid + 1]) {
+        return mid;
+      } else if (index < _bucket_offsets[bucket_row][mid]) {
+        right = mid;
+      } else {
+        left = mid;
+      }
+    }
+
+    throw std::runtime_error(
+        "This should not be possible if index is within the filter range");
+  }
+
+  std::optional<SequentialBuckets>
+  find_largest_ranges_within_query_range(size_t inclusive_start,
+                                         size_t exclusive_end) {
+    size_t range_size = exclusive_end - inclusive_start;
+
+    // First find row where first bucket is smaller than range
+    std::optional<size_t> first_possible_bucket_row = std::nullopt;
+    for (size_t bucket_row = 0; bucket_row < _bucket_offsets.size();
+         bucket_row++) {
+      auto bucket_end = _bucket_offsets[bucket_row][1];
+      // Subtract one because bucket size may possibly be one smaller than first
+      // bucket
+      auto bucket_size =
+          _bucket_offsets[bucket_row][1] - _bucket_offsets[bucket_row][0] - 1;
+      if (bucket_size <= range_size) {
+        first_possible_bucket_row = bucket_row;
+        break;
+      }
+    }
+
+    if (!first_possible_bucket_row.has_value()) {
+      return std::nullopt;
+    }
+
+    auto current_row = first_possible_bucket_row.value();
+
+    // Find first range that does not contain inclusive_start - 1 (or 0 if
+    // inclusive_start == 0)
+    auto first_range_index =
+        inclusive_start == 0
+            ? 0
+            : find_range_containing_index(current_row, inclusive_start - 1) + 1;
+    auto start = _bucket_offsets.at(current_row).at(first_range_index);
+    auto end = _bucket_offsets.at(current_row).at(first_range_index + 1);
+    if (end > exclusive_end) {
+      current_row += 1;
+      first_range_index =
+          inclusive_start == 0
+              ? 0
+              : find_range_containing_index(current_row, inclusive_start - 1) +
+                    1;
+      start = _bucket_offsets.at(current_row).at(first_range_index);
+      end = _bucket_offsets.at(current_row).at(first_range_index + 1);
+    }
+
+    auto last_range_index = first_range_index + 1;
+    while (last_range_index < _bucket_offsets.at(current_row).size() - 1) {
+      auto next_end = _bucket_offsets.at(current_row).at(last_range_index + 1);
+      if (next_end > exclusive_end) {
+        break;
+      }
+      end = _bucket_offsets.at(current_row).at(last_range_index + 1);
+      last_range_index++;
+    }
+
+    return SequentialBuckets{current_row, first_range_index, last_range_index,
+                             start, end};
+  }
+
   parlay::sequence<pid> fenwick_tree_search(const Point &query,
                                             const FilterRange &range,
                                             QueryParams qp) {
-    // if the query range is entirely outside the index range, return
     if (check_empty(range)) {
       return parlay::sequence<pid>();
     }
@@ -273,55 +418,64 @@ private:
     auto inclusive_start = first_greater_than(range.first);
     auto exclusive_end = first_greater_than_or_equal_to(range.second);
 
-    std::pair<size_t, size_t> last_range = {0, 0};
-    std::vector<std::pair<size_t, size_t>> indices_to_search;
-    for (int64_t bucket_size_index = _bucket_sizes.size() - 1;
-         bucket_size_index >= 0; bucket_size_index--) {
+    auto center_ranges_opt =
+        find_largest_ranges_within_query_range(inclusive_start, exclusive_end);
 
-      size_t current_bucket_size = _bucket_sizes[bucket_size_index];
+    auto ranges_to_search = std::vector<std::pair<size_t, size_t>>(0);
+    std::optional<size_t> cover_inclusive_start,
+        cover_exclusive_end = std::nullopt;
 
-      if (last_range.first == 0 && last_range.second == 0) {
-        size_t min_possible_bucket_index_inclusive =
-            inclusive_start / current_bucket_size;
-        size_t max_possible_bucket_index_exclusive =
-            exclusive_end / current_bucket_size;
-        for (size_t possible_bucket_index = min_possible_bucket_index_inclusive;
-             possible_bucket_index < max_possible_bucket_index_exclusive;
-             possible_bucket_index++) {
-          size_t bucket_start = possible_bucket_index * current_bucket_size;
-          size_t bucket_end = bucket_start + current_bucket_size;
-          if (bucket_start >= inclusive_start && bucket_end <= exclusive_end) {
-            indices_to_search.push_back(std::make_pair(
-                bucket_size_index, bucket_start / current_bucket_size));
-            last_range = std::make_pair(bucket_start,
-                                        bucket_start + current_bucket_size);
+    if (center_ranges_opt.has_value()) {
+      SequentialBuckets center_range = center_ranges_opt.value();
+      for (size_t bucket_index = center_range.bucket_start_index;
+           bucket_index < center_range.bucket_end_index; bucket_index++) {
+        ranges_to_search.push_back(
+            std::make_pair(center_range.bucket_row, bucket_index));
+      }
+
+      cover_inclusive_start = center_range.start_filter_cover;
+      cover_exclusive_end = center_range.end_filter_cover;
+      size_t last_included_left_index = center_range.bucket_start_index;
+      size_t last_included_right_index = center_range.bucket_end_index - 1;
+      for (size_t bucket_row = center_range.bucket_row + 1;
+           bucket_row < _bucket_offsets.size(); bucket_row++) {
+        last_included_left_index *= _split_factor;
+        last_included_right_index *= _split_factor;
+        last_included_right_index += _split_factor - 1;
+
+        while (last_included_left_index >= 0) {
+          auto next_left_bucket_start =
+              _bucket_offsets.at(bucket_row).at(last_included_left_index - 1);
+          if (next_left_bucket_start < inclusive_start) {
+            break;
           }
+          cover_inclusive_start = next_left_bucket_start;
+          last_included_left_index -= 1;
+          ranges_to_search.push_back(
+              std::make_pair(bucket_row, last_included_left_index));
         }
-      }
 
-      if (last_range.first == 0 && last_range.second == 0) {
-        continue;
-      }
-
-      size_t left_space = last_range.first - inclusive_start;
-      size_t right_space = exclusive_end - last_range.second;
-      if (left_space > current_bucket_size) {
-        last_range.first -= current_bucket_size;
-        indices_to_search.push_back(std::make_pair(
-            bucket_size_index, last_range.first / current_bucket_size));
-      }
-      if (right_space > current_bucket_size) {
-        indices_to_search.push_back(std::make_pair(
-            bucket_size_index, last_range.second / current_bucket_size));
-        last_range.second += current_bucket_size;
+        while (last_included_right_index < _bucket_offsets[bucket_row].size()) {
+          auto next_right_bucket_end =
+              _bucket_offsets.at(bucket_row).at(last_included_right_index + 1);
+          if (next_right_bucket_end > exclusive_end) {
+            break;
+          }
+          cover_exclusive_end = next_right_bucket_end;
+          last_included_right_index += 1;
+          ranges_to_search.push_back(
+              std::make_pair(bucket_row, last_included_right_index));
+        }
       }
     }
 
+    std::cout << "QUERY: " << inclusive_start << " " << exclusive_end << std::endl;
     parlay::sequence<pid> frontier;
-    for (auto index_pair : indices_to_search) {
-      auto bucket_size_index = index_pair.first;
+    for (auto index_pair : ranges_to_search) {
+      auto bucket_row_index = index_pair.first;
       auto bucket_index = index_pair.second;
-      auto search_results = _spatial_indices.at(bucket_size_index)
+      std::cout << _bucket_offsets.at(bucket_row_index).at(bucket_index) << " " << _bucket_offsets.at(bucket_row_index).at(bucket_index + 1) << std::endl;
+      auto search_results = _spatial_indices.at(bucket_row_index)
                                 .at(bucket_index)
                                 ->query(query, range, qp);
       for (auto pid : search_results) {
@@ -329,15 +483,15 @@ private:
       }
     }
 
-    if (last_range.first == 0 && last_range.second == 0) {
-      for (size_t i = inclusive_start; i < exclusive_end; i++) {
+    if (cover_inclusive_start.has_value() && cover_exclusive_end.has_value()) {
+      for (size_t i = inclusive_start; i < *cover_inclusive_start; i++) {
+        frontier.push_back({i, (*_points)[i].distance(query)});
+      }
+      for (size_t i = *cover_exclusive_end; i < exclusive_end; i++) {
         frontier.push_back({i, (*_points)[i].distance(query)});
       }
     } else {
-      for (size_t i = inclusive_start; i < last_range.first; i++) {
-        frontier.push_back({i, (*_points)[i].distance(query)});
-      }
-      for (size_t i = last_range.second; i < exclusive_end; i++) {
+      for (size_t i = inclusive_start; i < exclusive_end; i++) {
         frontier.push_back({i, (*_points)[i].distance(query)});
       }
     }
@@ -352,154 +506,159 @@ private:
     return frontier;
   }
 
-  parlay::sequence<pid> optimized_postfiltering_search(const Point &query,
-                                                       const FilterRange &range,
-                                                       QueryParams qp) {
+  // parlay::sequence<pid> optimized_postfiltering_search(const Point &query,
+  //                                                      const FilterRange
+  //                                                      &range, QueryParams
+  //                                                      qp) {
 
-    // if the query range is entirely outside the index range, return
-    if (check_empty(range)) {
-      return parlay::sequence<pid>();
-    }
+  //   // if the query range is entirely outside the index range, return
+  //   if (check_empty(range)) {
+  //     return parlay::sequence<pid>();
+  //   }
 
-    size_t knn = qp.k;
+  //   size_t knn = qp.k;
 
-    auto inclusive_start = first_greater_than(range.first);
-    auto exclusive_end = first_greater_than_or_equal_to(range.second);
+  //   auto inclusive_start = first_greater_than(range.first);
+  //   auto exclusive_end = first_greater_than_or_equal_to(range.second);
 
-    if (4 * (exclusive_end - inclusive_start) < _cutoff) {
-      return fenwick_tree_search(query, range, qp);
-    }
+  //   if (4 * (exclusive_end - inclusive_start) < _cutoff) {
+  //     return fenwick_tree_search(query, range, qp);
+  //   }
 
-    std::pair<size_t, size_t> index_key;
-    for (int64_t bucket_id = 0; bucket_id < _bucket_sizes.size(); bucket_id++) {
-      size_t bucket_size = _bucket_sizes[bucket_id];
-      size_t start_bucket = inclusive_start / bucket_size;
-      size_t end_bucket = (exclusive_end - 1) / bucket_size;
-      if (start_bucket == end_bucket) {
-        index_key = {bucket_id, start_bucket};
-        if (qp.verbose) {
-          std::cout << "Query range = (" << inclusive_start << ","
-                    << exclusive_end << "), smallest containing range (size "
-                    << bucket_size << ") = (" << start_bucket * bucket_size
-                    << "," << bucket_size + start_bucket * bucket_size << ")"
-                    << std::endl;
-        }
+  //   std::pair<size_t, size_t> index_key;
+  //   for (int64_t bucket_id = 0; bucket_id < _bucket_sizes.size();
+  //   bucket_id++) {
+  //     size_t bucket_size = _bucket_sizes[bucket_id];
+  //     size_t start_bucket = inclusive_start / bucket_size;
+  //     size_t end_bucket = (exclusive_end - 1) / bucket_size;
+  //     if (start_bucket == end_bucket) {
+  //       index_key = {bucket_id, start_bucket};
+  //       if (qp.verbose) {
+  //         std::cout << "Query range = (" << inclusive_start << ","
+  //                   << exclusive_end << "), smallest containing range (size "
+  //                   << bucket_size << ") = (" << start_bucket * bucket_size
+  //                   << "," << bucket_size + start_bucket * bucket_size << ")"
+  //                   << std::endl;
+  //       }
 
-        break;
-      }
-    }
+  //       break;
+  //     }
+  //   }
 
-    auto bucket_size = _bucket_sizes[index_key.first];
-    float bucket_size_to_query_size_ratio =
-        (float)bucket_size / (exclusive_end - inclusive_start);
-    if (qp.min_query_to_bucket_ratio.has_value() &&
-        bucket_size_to_query_size_ratio >
-            qp.min_query_to_bucket_ratio.value()) {
-      return fenwick_tree_search(query, range, qp);
-    }
+  //   auto bucket_size = _bucket_sizes[index_key.first];
+  //   float bucket_size_to_query_size_ratio =
+  //       (float)bucket_size / (exclusive_end - inclusive_start);
+  //   if (qp.min_query_to_bucket_ratio.has_value() &&
+  //       bucket_size_to_query_size_ratio >
+  //           qp.min_query_to_bucket_ratio.value()) {
+  //     return fenwick_tree_search(query, range, qp);
+  //   }
 
-    return _spatial_indices.at(index_key.first)
-        .at(index_key.second)
-        ->query(query, range, qp);
-  }
+  //   return _spatial_indices.at(index_key.first)
+  //       .at(index_key.second)
+  //       ->query(query, range, qp);
+  // }
 
-  parlay::sequence<pid> three_split_search(const Point &query,
-                                           const FilterRange &filter_range,
-                                           QueryParams qp) {
+  // parlay::sequence<pid> three_split_search(const Point &query,
+  //                                          const FilterRange &filter_range,
+  //                                          QueryParams qp) {
 
-    auto inclusive_start = first_greater_than(filter_range.first);
-    auto exclusive_end = first_greater_than_or_equal_to(filter_range.second);
+  //   auto inclusive_start = first_greater_than(filter_range.first);
+  //   auto exclusive_end = first_greater_than_or_equal_to(filter_range.second);
 
-    std::optional<std::pair<size_t, size_t>> index_to_search = std::nullopt;
+  //   std::optional<std::pair<size_t, size_t>> index_to_search = std::nullopt;
 
-    for (int64_t bucket_size_index = _bucket_sizes.size() - 1;
-         bucket_size_index >= 0; bucket_size_index--) {
+  //   for (int64_t bucket_size_index = _bucket_sizes.size() - 1;
+  //        bucket_size_index >= 0; bucket_size_index--) {
 
-      size_t current_bucket_size = _bucket_sizes[bucket_size_index];
+  //     size_t current_bucket_size = _bucket_sizes[bucket_size_index];
 
-      size_t min_possible_bucket_index_inclusive =
-          inclusive_start / current_bucket_size;
-      size_t max_possible_bucket_index_exclusive =
-          exclusive_end / current_bucket_size;
+  //     size_t min_possible_bucket_index_inclusive =
+  //         inclusive_start / current_bucket_size;
+  //     size_t max_possible_bucket_index_exclusive =
+  //         exclusive_end / current_bucket_size;
 
-      for (size_t possible_bucket_index = min_possible_bucket_index_inclusive;
-           possible_bucket_index < max_possible_bucket_index_exclusive;
-           possible_bucket_index++) {
-        size_t bucket_start = possible_bucket_index * current_bucket_size;
-        size_t bucket_end =
-            std::min(bucket_start + current_bucket_size, _points->size());
-        if (bucket_start >= inclusive_start && bucket_end <= exclusive_end) {
-          index_to_search =
-              std::make_pair(bucket_size_index, possible_bucket_index);
-          goto loop_done;
-        }
-      }
-    }
+  //     for (size_t possible_bucket_index =
+  //     min_possible_bucket_index_inclusive;
+  //          possible_bucket_index < max_possible_bucket_index_exclusive;
+  //          possible_bucket_index++) {
+  //       size_t bucket_start = possible_bucket_index * current_bucket_size;
+  //       size_t bucket_end =
+  //           std::min(bucket_start + current_bucket_size, _points->size());
+  //       if (bucket_start >= inclusive_start && bucket_end <= exclusive_end) {
+  //         index_to_search =
+  //             std::make_pair(bucket_size_index, possible_bucket_index);
+  //         goto loop_done;
+  //       }
+  //     }
+  //   }
 
-  loop_done:
+  // loop_done:
 
-    if (!index_to_search.has_value()) {
-      return fenwick_tree_search(query, filter_range, qp);
-    }
+  //   if (!index_to_search.has_value()) {
+  //     return fenwick_tree_search(query, filter_range, qp);
+  //   }
 
-    std::vector<parlay::sequence<pid>> frontiers;
-    auto bucket_size_index = index_to_search->first;
-    auto bucket_index = index_to_search->second;
-    // Force final_beam_multiply to be 1
-    QueryParams qp_copy = {qp.k,
-                           qp.beamSize,
-                           qp.cut,
-                           qp.limit,
-                           qp.degree_limit,
-                           1,
-                           qp.postfiltering_max_beam,
-                           qp.min_query_to_bucket_ratio,
-                           qp.verbose};
+  //   std::vector<parlay::sequence<pid>> frontiers;
+  //   auto bucket_size_index = index_to_search->first;
+  //   auto bucket_index = index_to_search->second;
+  //   // Force final_beam_multiply to be 1
+  //   QueryParams qp_copy = {qp.k,
+  //                          qp.beamSize,
+  //                          qp.cut,
+  //                          qp.limit,
+  //                          qp.degree_limit,
+  //                          1,
+  //                          qp.postfiltering_max_beam,
+  //                          qp.min_query_to_bucket_ratio,
+  //                          qp.verbose};
 
-    // std::cout << "Center" << std::endl;
-    frontiers.push_back(_spatial_indices.at(bucket_size_index)
-                            .at(bucket_index)
-                            ->query(query, filter_range, qp_copy));
+  //   // std::cout << "Center" << std::endl;
+  //   frontiers.push_back(_spatial_indices.at(bucket_size_index)
+  //                           .at(bucket_index)
+  //                           ->query(query, filter_range, qp_copy));
 
-    auto middle_start = bucket_index * _bucket_sizes[bucket_size_index];
-    auto middle_end = std::min(middle_start + _bucket_sizes[bucket_size_index],
-                               _points->size());
-    size_t left_space = middle_start - inclusive_start;
-    size_t right_space = exclusive_end - middle_end;
+  //   auto middle_start = bucket_index * _bucket_sizes[bucket_size_index];
+  //   auto middle_end = std::min(middle_start +
+  //   _bucket_sizes[bucket_size_index],
+  //                              _points->size());
+  //   size_t left_space = middle_start - inclusive_start;
+  //   size_t right_space = exclusive_end - middle_end;
 
-    // std::cout << "Left" << std::endl;
-    // std::cout << inclusive_start << " " << middle_start << std::endl;
-    if (left_space > 0) {
-      FilterRange left_filter_range =
-          std::make_pair(filter_range.first, _filter_values[middle_start]);
-      frontiers.push_back(
-          optimized_postfiltering_search(query, left_filter_range, qp));
-    }
+  //   // std::cout << "Left" << std::endl;
+  //   // std::cout << inclusive_start << " " << middle_start << std::endl;
+  //   if (left_space > 0) {
+  //     FilterRange left_filter_range =
+  //         std::make_pair(filter_range.first, _filter_values[middle_start]);
+  //     frontiers.push_back(
+  //         optimized_postfiltering_search(query, left_filter_range, qp));
+  //   }
 
-    // std::cout << "Right" << std::endl;
-    // std::cout << middle_end << " " << exclusive_end << std::endl;
-    if (right_space > 0) {
-      FilterRange right_filter_range =
-          std::make_pair(_filter_values[middle_end], filter_range.second);
-      frontiers.push_back(
-          optimized_postfiltering_search(query, right_filter_range, qp));
-    }
+  //   // std::cout << "Right" << std::endl;
+  //   // std::cout << middle_end << " " << exclusive_end << std::endl;
+  //   if (right_space > 0) {
+  //     FilterRange right_filter_range =
+  //         std::make_pair(_filter_values[middle_end], filter_range.second);
+  //     frontiers.push_back(
+  //         optimized_postfiltering_search(query, right_filter_range, qp));
+  //   }
 
-    parlay::sequence<pid> frontier;
+  //   parlay::sequence<pid> frontier;
 
-    for (auto part_frontier : frontiers) {
-      for (auto pid : part_frontier) {
-        frontier.push_back(pid);
-      }
-    }
+  //   for (auto part_frontier : frontiers) {
+  //     for (auto pid : part_frontier) {
+  //       frontier.push_back(pid);
+  //     }
+  //   }
 
-    parlay::sort_inplace(frontier,
-                         [&](auto a, auto b) { return a.second < b.second; });
+  //   parlay::sort_inplace(frontier,
+  //                        [&](auto a, auto b) { return a.second < b.second;
+  //                        });
 
-    if (frontier.size() > qp.k) {
-      frontier.pop_tail(frontier.size() - qp.k);
-    }
+  //   if (frontier.size() > qp.k) {
+  //     frontier.pop_tail(frontier.size() - qp.k);
+  //   }
 
-    return frontier;
-  }
+  //   return frontier;
+  // }
 };

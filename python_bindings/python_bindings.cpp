@@ -113,8 +113,9 @@ inline void add_variant(py::module_ &m, const Variant &variant) {
 
   py::class_<RangeFilterTreeIndex<T, Point>>(
       m, ("RangeFilterTreeIndex" + variant.agnostic_name).c_str())
-      .def(py::init<py::array_t<T>, py::array_t<float_t>>())
-      .def(py::init<py::array_t<T>, py::array_t<float_t>, int32_t>())
+      .def(py::init<py::array_t<T>, py::array_t<float_t>, int32_t, size_t>(),
+           py::arg("points"), py::arg("filter_values"),
+           py::arg("cutoff") = 1000, py::arg("split_factor") = 2)
       .def("batch_search", &RangeFilterTreeIndex<T, Point>::batch_search,
            "queries"_a, "filters"_a, "num_queries"_a, "query_method"_a, "QP"_a);
 
@@ -132,8 +133,9 @@ inline void add_variant(py::module_ &m, const Variant &variant) {
 
   py::class_<RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>>(
       m, ("VamanaRangeFilterTreeIndex" + variant.agnostic_name).c_str())
-      .def(py::init<py::array_t<T>, py::array_t<float_t>>())
-      .def(py::init<py::array_t<T>, py::array_t<float_t>, int32_t>())
+      .def(py::init<py::array_t<T>, py::array_t<float_t>, int32_t, size_t>(),
+           py::arg("points"), py::arg("filter_values"),
+           py::arg("cutoff") = 1000, py::arg("split_factor") = 2)
       .def("batch_search",
            &RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>::batch_search,
            "queries"_a, "filters"_a, "num_queries"_a, "query_method"_a, "QP"_a);

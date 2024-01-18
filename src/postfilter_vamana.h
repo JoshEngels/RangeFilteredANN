@@ -158,7 +158,8 @@ struct PostfilterVamanaIndex {
     if (qp.verbose) {
       std::cout << "Starting optimized postfiltering, beam size = "
                 << actual_params.beamSize << ", k = " << knn
-                << ", final multiply = " << qp.final_beam_multiply << ", n = " << filter_values.size() << std::endl;
+                << ", final multiply = " << qp.final_beam_multiply
+                << ", n = " << filter_values.size() << std::endl;
     }
     while (frontier.size() < knn &&
            actual_params.beamSize < qp.postfiltering_max_beam) {
@@ -230,7 +231,7 @@ private:
     // auto [frontier, visited] = pairElts;
     auto frontier = pairElts.first;
     if (qp.verbose) {
-      std::cout << "Unfiltered return = " << frontier.size() << std::endl; 
+      std::cout << "Unfiltered return = " << frontier.size() << std::endl;
     }
 
     if constexpr (std::is_same<PR, PointRange<T, Point>>::value) {
