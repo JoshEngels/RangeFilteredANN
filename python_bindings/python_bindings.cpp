@@ -84,6 +84,8 @@ const Variant Int8MipsVariant{"build_vamana_int8_mips_index",
                               "VamanaInt8MipsIndex", "IVFInt8MipsIndex",
                               "Int8Mips"};
 
+BuildParams DEFAULT_BUILD_PARAMS = BuildParams(64, 500, 1.175, "index_cache");
+
 template <typename T, typename Point>
 inline void add_variant(py::module_ &m, const Variant &variant) {
 
@@ -107,38 +109,39 @@ inline void add_variant(py::module_ &m, const Variant &variant) {
 
   py::class_<PrefilterIndex<T, Point>>(
       m, ("PrefilterIndex" + variant.agnostic_name).c_str())
-      .def(py::init<py::array_t<T>, py::array_t<float_t>>())
+      .def(py::init<py::array_t<T>, py::array_t<float_t>, BuildParams>(),
+           "points"_a, "filter_values"_a,
+           "build_params"_a = DEFAULT_BUILD_PARAMS)
       .def("batch_search", &PrefilterIndex<T, Point>::batch_search, "queries"_a,
-           "filters"_a, "num_queries"_a, "QP"_a);
+           "filters"_a, "num_queries"_a, "query_params"_a);
 
   py::class_<RangeFilterTreeIndex<T, Point>>(
       m, ("RangeFilterTreeIndex" + variant.agnostic_name).c_str())
-      .def(py::init<py::array_t<T>, py::array_t<float_t>, int32_t, size_t>(),
-           py::arg("points"), py::arg("filter_values"),
-           py::arg("cutoff") = 1000, py::arg("split_factor") = 2)
+      .def(py::init<py::array_t<T>, py::array_t<float_t>, int32_t, size_t,
+                    BuildParams>(),
+           "points"_a, "filter_values"_a, "cutoff"_a = 1000,
+           "split_factor"_a = 2, "build_params"_a = DEFAULT_BUILD_PARAMS)
       .def("batch_search", &RangeFilterTreeIndex<T, Point>::batch_search,
-           "queries"_a, "filters"_a, "num_queries"_a, "query_method"_a, "QP"_a);
+           "queries"_a, "filters"_a, "num_queries"_a, "query_method"_a,
+           "query_params"_a);
 
   py::class_<PostfilterVamanaIndex<T, Point>>(
       m, ("PostfilterVamanaIndex" + variant.agnostic_name).c_str())
-      .def(py::init<py::array_t<T>, py::array_t<float_t>>(), "points"_a,
-           "filters"_a)
       .def(py::init<py::array_t<T>, py::array_t<float_t>, BuildParams>(),
-           "points"_a, "filters"_a, "BP"_a)
-      .def(py::init<py::array_t<T>, py::array_t<float_t>, BuildParams,
-                    std::string>(),
-           "points"_a, "filters"_a, "BP"_a, "cache_path"_a)
+           "points"_a, "filters"_a, "build_params"_a = DEFAULT_BUILD_PARAMS)
       .def("batch_search", &PostfilterVamanaIndex<T, Point>::batch_search,
-           "queries"_a, "filters"_a, "num_queries"_a, "QP"_a);
+           "queries"_a, "filters"_a, "num_queries"_a, "query_params"_a);
 
   py::class_<RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>>(
       m, ("VamanaRangeFilterTreeIndex" + variant.agnostic_name).c_str())
-      .def(py::init<py::array_t<T>, py::array_t<float_t>, int32_t, size_t>(),
-           py::arg("points"), py::arg("filter_values"),
-           py::arg("cutoff") = 1000, py::arg("split_factor") = 2)
+      .def(py::init<py::array_t<T>, py::array_t<float_t>, int32_t, size_t,
+                    BuildParams>(),
+           "points"_a, "filter_values"_a, "cutoff"_a = 1000,
+           "split_factor"_a = 2, "build_params"_a = DEFAULT_BUILD_PARAMS)
       .def("batch_search",
            &RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>::batch_search,
-           "queries"_a, "filters"_a, "num_queries"_a, "query_method"_a, "QP"_a);
+           "queries"_a, "filters"_a, "num_queries"_a, "query_method"_a,
+           "query_params"_a);
 }
 
 PYBIND11_MODULE(window_ann, m) {
@@ -156,13 +159,6 @@ PYBIND11_MODULE(window_ann, m) {
   default_values.attr("ALPHA") = 1.2;
   default_values.attr("GRAPH_DEGREE") = 64;
   default_values.attr("BEAMWIDTH") = 128;
-
-  add_variant<float, Euclidian_Point<float>>(m, FloatEuclidianVariant);
-  add_variant<float, Mips_Point<float>>(m, FloatMipsVariant);
-  add_variant<uint8_t, Euclidian_Point<uint8_t>>(m, UInt8EuclidianVariant);
-  add_variant<uint8_t, Mips_Point<uint8_t>>(m, UInt8MipsVariant);
-  add_variant<int8_t, Euclidian_Point<int8_t>>(m, Int8EuclidianVariant);
-  add_variant<int8_t, Mips_Point<int8_t>>(m, Int8MipsVariant);
 
   py::class_<csr_filters>(m, "csr_filters")
       .def(py::init<std::string &>())
@@ -200,8 +196,8 @@ PYBIND11_MODULE(window_ann, m) {
            "min_query_to_bucket_ratio"_a, "verbose"_a);
 
   py::class_<BuildParams>(m, "BuildParams")
-      .def(py::init<long, long, double>(), "max_degree"_a, "limit"_a,
-           "alpha"_a);
+      .def(py::init<long, long, double, std::string>(), "max_degree"_a,
+           "limit"_a, "alpha"_a, "cache_path"_a);
 
   py::class_<FilteredDataset>(m, "FilteredDataset")
       .def(py::init<std::string &, std::string &>(), "points_filename"_a,
@@ -219,4 +215,11 @@ PYBIND11_MODULE(window_ann, m) {
            "filter_id_1"_a, "filter_id_2"_a)
       .def("get_point_intersection", &FilteredDataset::get_point_intersection,
            "point_id_1"_a, "point_id_2"_a);
+
+  add_variant<float, Euclidian_Point<float>>(m, FloatEuclidianVariant);
+  add_variant<float, Mips_Point<float>>(m, FloatMipsVariant);
+  add_variant<uint8_t, Euclidian_Point<uint8_t>>(m, UInt8EuclidianVariant);
+  add_variant<uint8_t, Mips_Point<uint8_t>>(m, UInt8MipsVariant);
+  add_variant<int8_t, Euclidian_Point<int8_t>>(m, Int8EuclidianVariant);
+  add_variant<int8_t, Mips_Point<int8_t>>(m, Int8MipsVariant);
 };

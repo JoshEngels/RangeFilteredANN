@@ -37,9 +37,15 @@ struct PrefilterIndex {
 
   std::pair<FilterType, FilterType> range;
 
+  // BuildParams is unused for now but kept for API consistency
   PrefilterIndex(std::unique_ptr<PR> &&points,
-                 parlay::sequence<FilterType> filter_values)
+                 parlay::sequence<FilterType> filter_values,
+                 BuildParams build_params)
       : points(std::move(points)), filter_values(std::move(filter_values)) {
+
+    // These are unused, but kept for API consistency
+    (void)build_params;
+
     auto n = this->points->size();
 
     if constexpr (std::is_same<PR, PointRange<T, Point>>()) {
@@ -66,7 +72,9 @@ struct PrefilterIndex {
         std::make_pair(filter_values_sorted[0], filter_values_sorted[n - 1]);
   }
 
-  PrefilterIndex(py::array_t<T> points, py::array_t<FilterType> filter_values) {
+  // BuildParams is unused for now but kept for API consistency
+  PrefilterIndex(py::array_t<T> points, py::array_t<FilterType> filter_values,
+                 BuildParams build_params) {
     py::buffer_info points_buf = points.request();
     if (points_buf.ndim != 2) {
       throw std::runtime_error("points numpy array must be 2-dimensional");
@@ -116,8 +124,8 @@ struct PrefilterIndex {
   NeighborsAndDistances batch_search(
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
       const std::vector<std::pair<FilterType, FilterType>> &filters,
-      uint64_t num_queries, QueryParams qp) {
-    size_t knn = qp.k;
+      uint64_t num_queries, QueryParams query_params) {
+    size_t knn = query_params.k;
     py::array_t<unsigned int> ids({num_queries, knn});
     py::array_t<float> dists({num_queries, knn});
 
@@ -126,7 +134,7 @@ struct PrefilterIndex {
                       this->points->aligned_dimension(), i);
       std::pair<FilterType, FilterType> filter = filters[i];
 
-      auto frontier = query(q, filter, qp);
+      auto frontier = query(q, filter, query_params);
 
       for (auto j = 0; j < knn; j++) {
         ids.mutable_at(i, j) = frontier[j].first;
@@ -138,8 +146,8 @@ struct PrefilterIndex {
   }
 
   parlay::sequence<pid> query(Point q, std::pair<FilterType, FilterType> filter,
-                              QueryParams qp) {
-    return query_knn(q, filter, qp.k);
+                              QueryParams query_params) {
+    return query_knn(q, filter, query_params.k);
   }
 
   /* processes a single query */

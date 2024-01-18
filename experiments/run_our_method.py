@@ -6,10 +6,6 @@ import time
 import sys
 import multiprocessing
 
-# Ensure index_cache/postfiler_vamana exists so indices are saved correctly
-os.makedirs("index_cache/postfilter_vamana", exist_ok=True)
-os.makedirs("results", exist_ok=True)
-
 DATASET_FOLDER = "/data/parap/storage/jae/filtered_ann_datasets"
 DATASETS = [
     "glove-100-angular",
@@ -18,12 +14,23 @@ DATASETS = [
     "redcaps-512-angular",
 ]
 
+
+# Ensure results and index caches exist so indices are saved correctly
+os.makedirs("results", exist_ok=True)
+for dataset in DATASETS:
+    os.makedirs(f"index_cache/{dataset}/", exist_ok=True)
+
 EXPERIMENT_FILTER_WIDTHS = [0.0001, 0.001, 0.01, 0.1, 0.2, 0.5, 1]
 
 TOP_K = 10
 BEAM_SIZES = [10, 20, 40, 80, 160, 320, 640, 1280]
 FINAL_MULTIPLIES = [1, 2, 3, 4, 8, 16, 32]
 
+ALPHAS = [1, 1.1, 1.2]
+SPLIT_FACTORS = [2, 3, 4, 5]
+
+# TODO: Change to 10000 for final experiments
+NUM_QUERIES = 1000
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--threads", type=int, default=None, help="Number of threads")
@@ -35,18 +42,14 @@ parser.add_argument(
     action="store_true",
     help="Run optimized postfiltering method",
 )
-parser.add_argument(
-    "--vamana-tree", action="store_true", help="Run Vamana tree method"
-)
+parser.add_argument("--vamana-tree", action="store_true", help="Run Vamana tree method")
 parser.add_argument(
     "--prefiltering", action="store_true", help="Run prefiltering method"
 )
 parser.add_argument(
     "--smart-combined", action="store_true", help="Run smart combined method"
 )
-parser.add_argument(
-    "--three-split", action="store_true", help="Run three split method"
-)
+parser.add_argument("--three-split", action="store_true", help="Run three split method")
 parser.add_argument("--all_methods", action="store_true", help="Run all methods")
 parser.add_argument(
     "--results_file_prefix",
@@ -93,6 +96,12 @@ parser.add_argument(
     default=2,
     help="The branching factor for the vamana tree methods",
 )
+parser.add_argument(
+    "--alpha",
+    type=float,
+    default=1.175,
+    help="The branching factor for the vamana tree methods",
+)
 args = parser.parse_args()
 
 num_threads = args.threads
@@ -109,6 +118,10 @@ if args.num_final_multiplies is not None:
     FINAL_MULTIPLIES = [args.num_final_multiplies]
 if args.dataset is not None:
     DATASETS = [args.dataset]
+if args.alpha is not None:
+    ALPHAS = [args.alpha]
+if args.tree_split_factor is not None:
+    SPLIT_FACTORS = [args.tree_split_factor]
 
 run_postfiltering = args.postfiltering or args.all_methods
 run_optimized_postfiltering = args.optimized_postfiltering or args.all_methods
@@ -165,19 +178,11 @@ def should_break(run_results):
     return (recalls_equal and not one_multiply) or slower_than_prefilter
 
 
-for dataset_name in DATASETS:
-    output_file = f"results/{args.results_file_prefix}{dataset_name}_results.csv"
-
-    # only write header if file doesn't exist
-    if not os.path.exists(output_file):
-        with open(output_file, "a") as f:
-            f.write("filter_width,method,recall,average_time,qps,threads\n")
-
+def initialize_dataset(dataset_name):
     data = np.load(os.path.join(DATASET_FOLDER, f"{dataset_name}.npy"))
     queries = np.load(os.path.join(DATASET_FOLDER, f"{dataset_name}_queries.npy"))
 
-    # TODO: Remove for final experiments
-    queries = queries[:1000]
+    queries = queries[:NUM_QUERIES]
 
     filter_values = np.load(
         os.path.join(DATASET_FOLDER, f"{dataset_name}_filter-values.npy")
@@ -185,217 +190,276 @@ for dataset_name in DATASETS:
 
     metric = "mips" if "angular" in dataset_name else "Euclidian"
 
-    # Build prefilter index
-    if run_prefiltering:
-        prefilter_constructor = wp.prefilter_index_constructor(metric, "float")
-        prefilter_build_start = time.time()
-        prefilter_index = prefilter_constructor(data, filter_values)
-        prefilter_build_end = time.time()
-        prefilter_build_time = prefilter_build_end - prefilter_build_start
-        print(f"Prefiltering index build time: {prefilter_build_time:.3f}s")
+    return data, queries, filter_values, metric
 
-    # Build postfilter index
-    if run_postfiltering:
-        # TODO: Add different alpha in build params
-        build_params = wp.BuildParams(64, 500, 1.175)
-        postfilter_constructor = wp.postfilter_vamana_constructor(metric, "float")
-        postfilter_build_start = time.time()
-        postfilter = postfilter_constructor(
-            data,
-            filter_values,
-            build_params,
-            f"index_cache/postfilter_vamana/{dataset_name}_",
+
+def get_queries_and_gt(dataset_name, filter_width):
+    query_filter_ranges = np.load(
+        os.path.join(
+            DATASET_FOLDER, f"{dataset_name}_queries_{filter_width}_ranges.npy"
         )
-        postfilter_build_time = time.time() - postfilter_build_start
-        print(f"Naive postfilter build time: {postfilter_build_time:.3f}s")
+    )
+    query_gt = np.load(
+        os.path.join(DATASET_FOLDER, f"{dataset_name}_queries_{filter_width}_gt.npy")
+    )
 
-    # Build Vamana tree index
-    if (
+    return query_filter_ranges, query_gt
+
+
+def run_prefiltering_experiment(all_results, dataset_name, filter_width):
+    data, queries, filter_values, metric = initialize_dataset(dataset_name)
+
+    prefilter_constructor = wp.prefilter_index_constructor(metric, "float")
+    prefilter_build_start = time.time()
+    prefilter_index = prefilter_constructor(data, filter_values)
+    prefilter_build_end = time.time()
+    prefilter_build_time = prefilter_build_end - prefilter_build_start
+    print(f"Prefiltering index build time: {prefilter_build_time:.3f}s")
+
+    query_filter_ranges, query_gt = get_queries_and_gt(dataset_name, filter_width)
+
+    start = time.time()
+    query_params = wp.build_query_params(k=TOP_K, beam_size=0, verbose=VERBOSE)
+    prefilter_results = prefilter_index.batch_search(
+        queries, query_filter_ranges, queries.shape[0], query_params
+    )
+    all_results.append(
+        (
+            filter_width,
+            f"prefiltering",
+            compute_recall(prefilter_results[0], query_gt, TOP_K),
+            time.time() - start,
+        )
+    )
+    print(all_results[-1])
+
+
+def run_postfiltering_experiment(all_results, dataset_name, filter_width, alpha):
+    data, queries, filter_values, metric = initialize_dataset(dataset_name)
+
+    build_params = wp.BuildParams(64, 500, alpha, f"index_cache/{dataset_name}/")
+    postfilter_constructor = wp.postfilter_vamana_constructor(metric, "float")
+    postfilter_build_start = time.time()
+    postfilter = postfilter_constructor(
+        data,
+        filter_values,
+        build_params
+    )
+    postfilter_build_time = time.time() - postfilter_build_start
+    print(f"Naive postfilter build time: {postfilter_build_time:.3f}s")
+
+    query_filter_ranges, query_gt = get_queries_and_gt(dataset_name, filter_width)
+
+    for beam_size in BEAM_SIZES:
+        for final_beam_multiply in FINAL_MULTIPLIES:
+            query_params = wp.build_query_params(
+                k=TOP_K,
+                beam_size=beam_size,
+                final_beam_multiply=final_beam_multiply,
+                verbose=VERBOSE,
+            )
+            start = time.time()
+            postfilter_results = postfilter.batch_search(
+                queries,
+                query_filter_ranges,
+                queries.shape[0],
+                query_params,
+            )
+            all_results.append(
+                (
+                    filter_width,
+                    f"postfiltering_{beam_size}_{final_beam_multiply}",
+                    compute_recall(postfilter_results[0], query_gt, TOP_K),
+                    time.time() - start,
+                )
+            )
+            print(all_results[-1])
+            if should_break(all_results):
+                break
+
+
+def get_vamana_tree(data, filter_values, metric, alpha, split_factor):
+    vamana_tree_constructor = wp.vamana_range_filter_tree_constructor(metric, "float")
+    vamana_tree_build_start = time.time()
+    build_params = wp.BuildParams(64, 500, alpha, f"index_cache/{dataset_name}/")
+    vamana_tree = vamana_tree_constructor(
+        data,
+        filter_values,
+        cutoff=1_000,
+        split_factor=split_factor,
+        build_params=build_params,
+    )
+    vamana_tree_build_end = time.time()
+    vamana_tree_build_time = vamana_tree_build_end - vamana_tree_build_start
+    print(f"Vamana tree build time: {vamana_tree_build_time:.3f}s")
+
+    return vamana_tree
+
+
+# Runs tree based methods if their booleans are true
+def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_factor):
+    if not (
         run_vamana_tree
         or run_optimized_postfiltering
         or run_smart_combined
         or run_three_split
     ):
-        vamana_tree_constructor = wp.vamana_range_filter_tree_constructor(
-            metric, "float"
-        )
-        vamana_tree_build_start = time.time()
-        vamana_tree = vamana_tree_constructor(data, filter_values, cutoff=1_000, split_factor=args.tree_split_factor)
-        vamana_tree_build_end = time.time()
-        vamana_tree_build_time = vamana_tree_build_end - vamana_tree_build_start
-        print(f"Vamana tree build time: {vamana_tree_build_time:.3f}s")
+        return
 
-    for filter_width in EXPERIMENT_FILTER_WIDTHS:
-        run_results = []
-        query_filter_ranges = np.load(
-            os.path.join(
-                DATASET_FOLDER, f"{dataset_name}_queries_{filter_width}_ranges.npy"
-            )
-        )
-        query_gt = np.load(
-            os.path.join(
-                DATASET_FOLDER, f"{dataset_name}_queries_{filter_width}_gt.npy"
-            )
-        )
+    data, queries, filter_values, metric = initialize_dataset(dataset_name)
 
-        if run_prefiltering:
+    vamana_tree = get_vamana_tree(data, filter_values, metric, alpha, split_factor)
+
+    query_filter_ranges, query_gt = get_queries_and_gt(dataset_name, filter_width)
+
+    if run_vamana_tree:
+        for beam_size in BEAM_SIZES:
             start = time.time()
-            query_params = wp.build_query_params(k=TOP_K, beam_size=0, verbose=VERBOSE)
-            prefilter_results = prefilter_index.batch_search(
-                queries, query_filter_ranges, queries.shape[0], query_params
+            query_params = wp.build_query_params(
+                k=TOP_K, beam_size=beam_size, verbose=VERBOSE
             )
-            run_results.append(
+            vamana_tree_results = vamana_tree.batch_search(
+                queries,
+                query_filter_ranges,
+                queries.shape[0],
+                "fenwick",
+                query_params,
+            )
+            all_results.append(
                 (
-                    f"prefiltering",
-                    compute_recall(prefilter_results[0], query_gt, TOP_K),
+                    filter_width,
+                    f"vamana-tree_{alpha:.2f}_{split_factor}_{beam_size}",
+                    compute_recall(vamana_tree_results[0], query_gt, TOP_K),
                     time.time() - start,
                 )
             )
-            print(run_results[-1])
+            print(all_results[-1])
 
-        if run_vamana_tree:
-            for beam_size in BEAM_SIZES:
-                start = time.time()
+    if run_optimized_postfiltering:
+        for beam_size in BEAM_SIZES:
+            for final_beam_multiply in FINAL_MULTIPLIES:
                 query_params = wp.build_query_params(
-                    k=TOP_K, beam_size=beam_size, verbose=VERBOSE
+                    k=TOP_K,
+                    beam_size=beam_size,
+                    final_beam_multiply=final_beam_multiply,
+                    verbose=VERBOSE,
                 )
-                vamana_tree_results = vamana_tree.batch_search(
+                start = time.time()
+                optimized_postfilter_results = vamana_tree.batch_search(
                     queries,
                     query_filter_ranges,
                     queries.shape[0],
-                    "fenwick",
+                    "optimized_postfilter",
                     query_params,
                 )
-                run_results.append(
+                all_results.append(
                     (
-                        f"vamana-tree_{beam_size}",
-                        compute_recall(vamana_tree_results[0], query_gt, TOP_K),
+                        filter_width,
+                        f"optimized-postfiltering_{alpha:.2f}_{split_factor}_{beam_size}_{final_beam_multiply}",
+                        compute_recall(
+                            optimized_postfilter_results[0], query_gt, TOP_K
+                        ),
                         time.time() - start,
                     )
                 )
-                print(run_results[-1])
+                print(all_results[-1])
+                if should_break(all_results):
+                    break
 
-        if run_postfiltering:
-            for beam_size in BEAM_SIZES:
-                for final_beam_multiply in FINAL_MULTIPLIES:
-                    query_params = wp.build_query_params(
-                        k=TOP_K,
-                        beam_size=beam_size,
-                        final_beam_multiply=final_beam_multiply,
-                        verbose=VERBOSE,
-                    )
-                    start = time.time()
-                    postfilter_results = postfilter.batch_search(
-                        queries,
-                        query_filter_ranges,
-                        queries.shape[0],
-                        query_params,
-                    )
-                    run_results.append(
-                        (
-                            f"postfiltering_{beam_size}_{final_beam_multiply}",
-                            compute_recall(postfilter_results[0], query_gt, TOP_K),
-                            time.time() - start,
-                        )
-                    )
-                    print(run_results[-1])
-                    if should_break(run_results):
-                        break
+    if run_smart_combined:
+        for beam_size in BEAM_SIZES:
+            for final_beam_multiply in FINAL_MULTIPLIES:
+                query_params = wp.build_query_params(
+                    k=TOP_K,
+                    beam_size=beam_size,
+                    final_beam_multiply=final_beam_multiply,
+                    min_query_to_bucket_ratio=0.05,
+                    verbose=VERBOSE,
+                )
 
-        if run_optimized_postfiltering:
-            for beam_size in BEAM_SIZES:
-                for final_beam_multiply in FINAL_MULTIPLIES:
-                    query_params = wp.build_query_params(
-                        k=TOP_K,
-                        beam_size=beam_size,
-                        final_beam_multiply=final_beam_multiply,
-                        verbose=VERBOSE,
+                start = time.time()
+                smart_combined_results = vamana_tree.batch_search(
+                    queries,
+                    query_filter_ranges,
+                    queries.shape[0],
+                    "smart_combined",
+                    query_params,
+                )
+                all_results.append(
+                    (
+                        filter_width,
+                        f"smart-combined_{alpha:.2f}_{split_factor}_{beam_size}_{final_beam_multiply}",
+                        compute_recall(smart_combined_results[0], query_gt, TOP_K),
+                        time.time() - start,
                     )
-                    start = time.time()
-                    optimized_postfilter_results = vamana_tree.batch_search(
-                        queries,
-                        query_filter_ranges,
-                        queries.shape[0],
-                        "optimized_postfilter",
-                        query_params,
-                    )
-                    run_results.append(
-                        (
-                            f"optimized-postfiltering_{beam_size}_{final_beam_multiply}",
-                            compute_recall(
-                                optimized_postfilter_results[0], query_gt, TOP_K
-                            ),
-                            time.time() - start,
-                        )
-                    )
-                    print(run_results[-1])
-                    if should_break(run_results):
-                        break
+                )
+                print(all_results[-1])
+                if should_break(all_results):
+                    break
 
-        if run_smart_combined:
-            for beam_size in BEAM_SIZES:
-                for final_beam_multiply in FINAL_MULTIPLIES:
-                    query_params = wp.build_query_params(
-                        k=TOP_K,
-                        beam_size=beam_size,
-                        final_beam_multiply=final_beam_multiply,
-                        min_query_to_bucket_ratio=0.05,
-                        verbose=VERBOSE,
+    if run_three_split:
+        for beam_size in BEAM_SIZES:
+            for final_beam_multiply in FINAL_MULTIPLIES:
+                start = time.time()
+                query_params = wp.build_query_params(
+                    k=TOP_K,
+                    beam_size=beam_size,
+                    final_beam_multiply=final_beam_multiply,
+                    min_query_to_bucket_ratio=0.05,
+                    verbose=VERBOSE,
+                )
+                three_split_tree_results = vamana_tree.batch_search(
+                    queries,
+                    query_filter_ranges,
+                    queries.shape[0],
+                    "three_split",
+                    query_params,
+                )
+                all_results.append(
+                    (
+                        filter_width,
+                        f"three-split_{alpha:.2f}_{split_factor}_{beam_size}_{final_beam_multiply}",
+                        compute_recall(three_split_tree_results[0], query_gt, TOP_K),
+                        time.time() - start,
                     )
+                )
+                print(all_results[-1])
+                if should_break(all_results):
+                    break
 
-                    start = time.time()
-                    smart_combined_results = vamana_tree.batch_search(
-                        queries,
-                        query_filter_ranges,
-                        queries.shape[0],
-                        "smart_combined",
-                        query_params,
-                    )
-                    run_results.append(
-                        (
-                            f"smart-combined_{beam_size}_{final_beam_multiply}",
-                            compute_recall(
-                                smart_combined_results[0], query_gt, TOP_K
-                            ),
-                            time.time() - start,
-                        )
-                    )
-                    print(run_results[-1])
-                    if should_break(run_results):
-                        break
 
-        if run_three_split:
-            for beam_size in BEAM_SIZES:
-                for final_beam_multiply in FINAL_MULTIPLIES:
-                    start = time.time()
-                    query_params = wp.build_query_params(
-                        k=TOP_K,
-                        beam_size=beam_size,
-                        final_beam_multiply=final_beam_multiply,
-                        min_query_to_bucket_ratio=0.05,
-                        verbose=VERBOSE,
-                    )
-                    three_split_tree_results = vamana_tree.batch_search(
-                        queries,
-                        query_filter_ranges,
-                        queries.shape[0],
-                        "three_split",
-                        query_params,
-                    )
-                    run_results.append(
-                        (
-                            f"three-split_{beam_size}_{final_beam_multiply}",
-                            compute_recall(three_split_tree_results[0], query_gt, TOP_K),
-                            time.time() - start,
-                        )
-                    )
-                    print(run_results[-1])
-                    if should_break(run_results):
-                        break
+def save_results(all_results, dataset_name):
+    output_file = f"results/{args.results_file_prefix}{dataset_name}_results.csv"
 
-        if not args.dont_write_to_results_file:
-            with open(output_file, "a") as f:
-                for name, recall, total_time in run_results:
-                    f.write(
-                        f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{num_threads}\n"
-                    )
+    # only write header if file doesn't exist
+    if not os.path.exists(output_file):
+        with open(output_file, "a") as f:
+            f.write("filter_width,method,recall,average_time,qps,threads\n")
+
+    if not args.dont_write_to_results_file:
+        with open(output_file, "a") as f:
+            for filter_width, name, recall, total_time in all_results:
+                f.write(
+                    f"{filter_width},{name},{recall},{total_time/NUM_QUERIES},{NUM_QUERIES/total_time},{num_threads}\n"
+                )
+
+
+for dataset_name in DATASETS:
+    for experiment_filter_width in EXPERIMENT_FILTER_WIDTHS:
+        all_results = []
+        if run_prefiltering:
+            run_prefiltering_experiment(all_results, dataset_name, experiment_filter_width)
+        for alpha in ALPHAS:
+            if run_postfiltering:
+                run_postfiltering_experiment(
+                    all_results, dataset_name, experiment_filter_width, alpha
+                )
+            for split_factor in SPLIT_FACTORS:
+                run_tree_experiments(
+                    all_results,
+                    dataset_name,
+                    experiment_filter_width,
+                    alpha,
+                    args.tree_split_factor,
+                )
+        save_results(all_results, dataset_name)
