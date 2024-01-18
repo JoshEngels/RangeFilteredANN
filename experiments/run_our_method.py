@@ -28,26 +28,26 @@ FINAL_MULTIPLIES = [1, 2, 3, 4, 8, 16, 32]
 parser = argparse.ArgumentParser()
 parser.add_argument("--threads", type=int, default=None, help="Number of threads")
 parser.add_argument(
-    "--postfiltering", action="store_true", help="Run postfiltering experiments"
+    "--postfiltering", action="store_true", help="Run postfiltering method"
 )
 parser.add_argument(
     "--optimized-postfiltering",
     action="store_true",
-    help="Run optimized postfiltering experiments",
+    help="Run optimized postfiltering method",
 )
 parser.add_argument(
-    "--vamana-tree", action="store_true", help="Run Vamana tree experiments"
+    "--vamana-tree", action="store_true", help="Run Vamana tree method"
 )
 parser.add_argument(
-    "--prefiltering", action="store_true", help="Run prefiltering experiments"
+    "--prefiltering", action="store_true", help="Run prefiltering method"
 )
 parser.add_argument(
-    "--smart-combined", action="store_true", help="Run smart combined experiments"
+    "--smart-combined", action="store_true", help="Run smart combined method"
 )
 parser.add_argument(
-    "--three-split", action="store_true", help="Run three split experiments"
+    "--three-split", action="store_true", help="Run three split method"
 )
-parser.add_argument("--all", action="store_true", help="Run all experiments")
+parser.add_argument("--all_methods", action="store_true", help="Run all methods")
 parser.add_argument(
     "--results_file_prefix",
     help="Optional prefix to prepend to results files",
@@ -61,7 +61,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--experiment_filter_width",
-    type=int,
+    type=str,
     help=f"Optional experiment filter size to use for experiments. Default of None corresponds to do all of {EXPERIMENT_FILTER_WIDTHS}",
     default=None,
 )
@@ -87,6 +87,12 @@ parser.add_argument(
     action="store_true",
     help="If included, won't write to a results file and will just print results",
 )
+parser.add_argument(
+    "--tree_split_factor",
+    type=int,
+    default=2,
+    help="The branching factor for the vamana tree methods",
+)
 args = parser.parse_args()
 
 num_threads = args.threads
@@ -104,12 +110,12 @@ if args.num_final_multiplies is not None:
 if args.dataset is not None:
     DATASETS = [args.dataset]
 
-run_postfiltering = args.postfiltering or args.all
-run_optimized_postfiltering = args.optimized_postfiltering or args.all
-run_vamana_tree = args.vamana_tree or args.all
-run_prefiltering = args.prefiltering or args.all
-run_smart_combined = args.smart_combined or args.all
-run_three_split = args.three_split or args.all
+run_postfiltering = args.postfiltering or args.all_methods
+run_optimized_postfiltering = args.optimized_postfiltering or args.all_methods
+run_vamana_tree = args.vamana_tree or args.all_methods
+run_prefiltering = args.prefiltering or args.all_methods
+run_smart_combined = args.smart_combined or args.all_methods
+run_three_split = args.three_split or args.all_methods
 
 if not (
     run_postfiltering
@@ -214,7 +220,7 @@ for dataset_name in DATASETS:
             metric, "float"
         )
         vamana_tree_build_start = time.time()
-        vamana_tree = vamana_tree_constructor(data, filter_values, 1_000)
+        vamana_tree = vamana_tree_constructor(data, filter_values, cutoff=1_000, split_factor=args.tree_split_factor)
         vamana_tree_build_end = time.time()
         vamana_tree_build_time = vamana_tree_build_end - vamana_tree_build_start
         print(f"Vamana tree build time: {vamana_tree_build_time:.3f}s")
@@ -338,7 +344,7 @@ for dataset_name in DATASETS:
                     )
 
                     start = time.time()
-                    optimized_postfilter_results = vamana_tree.batch_search(
+                    smart_combined_results = vamana_tree.batch_search(
                         queries,
                         query_filter_ranges,
                         queries.shape[0],
@@ -349,7 +355,7 @@ for dataset_name in DATASETS:
                         (
                             f"smart-combined_{beam_size}_{final_beam_multiply}",
                             compute_recall(
-                                optimized_postfilter_results[0], query_gt, TOP_K
+                                smart_combined_results[0], query_gt, TOP_K
                             ),
                             time.time() - start,
                         )
@@ -369,7 +375,7 @@ for dataset_name in DATASETS:
                         min_query_to_bucket_ratio=0.05,
                         verbose=VERBOSE,
                     )
-                    vamana_tree_results = vamana_tree.batch_search(
+                    three_split_tree_results = vamana_tree.batch_search(
                         queries,
                         query_filter_ranges,
                         queries.shape[0],
@@ -379,7 +385,7 @@ for dataset_name in DATASETS:
                     run_results.append(
                         (
                             f"three-split_{beam_size}_{final_beam_multiply}",
-                            compute_recall(vamana_tree_results[0], query_gt, TOP_K),
+                            compute_recall(three_split_tree_results[0], query_gt, TOP_K),
                             time.time() - start,
                         )
                     )
