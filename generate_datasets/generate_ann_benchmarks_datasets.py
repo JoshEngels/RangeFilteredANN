@@ -59,7 +59,7 @@ def create_dataset(dataset_name, output_dir):
     )
 
 
-output_dir = Path("/data/parap/storage/jae/filtered_ann_datasets/")
+output_dir = Path("/data/parap/storage/jae/new_filtered_ann_datasets/")
 create_dataset("sift", output_dir)
 create_dataset("glove", output_dir)
 create_dataset("deep1b", output_dir)

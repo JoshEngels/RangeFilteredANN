@@ -190,16 +190,18 @@ def should_break(run_results):
     if len(run_results) == 1:
         return False
 
+    recall_not_better = run_results[-1][2] <= run_results[-2][2]
+    one_multiply = run_results[-1][1].split("_")[-1] == "1"
+    if (recall_not_better and not one_multiply):
+        return True
+
     prefiltering_results = [x for x in run_results if x[1] == "prefiltering"]
     if len(prefiltering_results) == 0:
         return False
     last_prefilter_time = prefiltering_results[-1][3]
-
-    recall_not_better = run_results[-1][2] <= run_results[-2][2]
-    one_multiply = run_results[-1][1].split("_")[-1] == "1"
     slower_than_prefilter = run_results[-1][3] > last_prefilter_time
 
-    return (recall_not_better and not one_multiply) or slower_than_prefilter
+    return slower_than_prefilter
 
 
 def initialize_dataset(dataset_name):
