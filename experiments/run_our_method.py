@@ -19,6 +19,7 @@ DATASETS = [
 os.makedirs("results", exist_ok=True)
 for dataset in DATASETS:
     os.makedirs(f"index_cache/{dataset}/", exist_ok=True)
+    os.makedirs(f"index_cache/{dataset}-super_opt_postfiltering/", exist_ok=True)
 
 EXPERIMENT_FILTER_WIDTHS = [0.0001, 0.001, 0.01, 0.1, 0.2, 0.5, 1]
 
@@ -26,8 +27,11 @@ TOP_K = 10
 BEAM_SIZES = [10, 20, 40, 80, 160, 320, 640, 1280]
 FINAL_MULTIPLIES = [1, 2, 3, 4, 8, 16, 32]
 
-ALPHAS = [1, 1.1, 1.2]
-SPLIT_FACTORS = [2, 3, 4, 5]
+ALPHAS = [1]
+VAMANA_TREE_SPLIT_FACTORS = [2]
+
+SUPER_POSTFILTERING_SPLIT_FACTORS = [2]
+SUPER_POSTFILTERING_SHIFT_FACTORS = [0.5]
 
 # TODO: Change to 10000 for final experiments
 NUM_QUERIES = 1000
@@ -38,18 +42,23 @@ parser.add_argument(
     "--postfiltering", action="store_true", help="Run postfiltering method"
 )
 parser.add_argument(
-    "--optimized-postfiltering",
+    "--optimized_postfiltering",
     action="store_true",
     help="Run optimized postfiltering method",
 )
-parser.add_argument("--vamana-tree", action="store_true", help="Run Vamana tree method")
+parser.add_argument("--vamana_tree", action="store_true", help="Run Vamana tree method")
 parser.add_argument(
     "--prefiltering", action="store_true", help="Run prefiltering method"
 )
 parser.add_argument(
-    "--smart-combined", action="store_true", help="Run smart combined method"
+    "--smart_combined", action="store_true", help="Run smart combined method"
 )
-parser.add_argument("--three-split", action="store_true", help="Run three split method")
+parser.add_argument("--three_split", action="store_true", help="Run three split method")
+parser.add_argument(
+    "--super_opt_postfiltering",
+    action="store_true",
+    help="Run super optimized postfiltering method",
+)
 parser.add_argument("--all_methods", action="store_true", help="Run all methods")
 parser.add_argument(
     "--results_file_prefix",
@@ -91,17 +100,26 @@ parser.add_argument(
     help="If included, won't write to a results file and will just print results",
 )
 parser.add_argument(
-    "--tree_split_factor",
+    "--vamana_tree_split_factor",
     type=int,
-    default=2,
     help="The branching factor for the vamana tree methods",
 )
 parser.add_argument(
     "--alpha",
     type=float,
-    default=1.175,
-    help="The branching factor for the vamana tree methods",
+    help="Alpha for all graph based methods",
 )
+parser.add_argument(
+    "--super_opt_postfiltering_split_factor",
+    type=float,
+    help="Split factor for super optimized postfiltering",
+)
+parser.add_argument(
+    "--super_opt_postfiltering_shift_factor",
+    type=float,
+    help="Shift factor for super optimized postfiltering",
+)
+
 args = parser.parse_args()
 
 num_threads = args.threads
@@ -120,8 +138,12 @@ if args.dataset is not None:
     DATASETS = [args.dataset]
 if args.alpha is not None:
     ALPHAS = [args.alpha]
-if args.tree_split_factor is not None:
-    SPLIT_FACTORS = [args.tree_split_factor]
+if args.vamana_tree_split_factor is not None:
+    VAMANA_TREE_SPLIT_FACTORS = [args.tree_split_factor]
+if args.super_opt_postfiltering_split_factor is not None:
+    SUPER_POSTFILTERING_SPLIT_FACTORS = [args.super_opt_postfiltering_split_factor]
+if args.super_opt_postfiltering_shift_factor is not None:
+    SUPER_POSTFILTERING_SHIFT_FACTORS = [args.super_opt_postfiltering_shift_factor]
 
 run_postfiltering = args.postfiltering or args.all_methods
 run_optimized_postfiltering = args.optimized_postfiltering or args.all_methods
@@ -129,6 +151,7 @@ run_vamana_tree = args.vamana_tree or args.all_methods
 run_prefiltering = args.prefiltering or args.all_methods
 run_smart_combined = args.smart_combined or args.all_methods
 run_three_split = args.three_split or args.all_methods
+run_super_opt_postfiltering = args.super_opt_postfiltering or args.all_methods
 
 if not (
     run_postfiltering
@@ -137,6 +160,7 @@ if not (
     or run_prefiltering
     or run_smart_combined
     or run_three_split
+    or run_super_opt_postfiltering
 ):
     print("NOTE: No experiments specified, so aborting")
     parser.print_help()
@@ -161,21 +185,21 @@ def compute_recall(gt_neighbors, results, top_k):
 def should_break(run_results):
     if len(run_results) == 0:
         return False
-    if run_results[-1][1] == 1.0:
+    if run_results[-1][2] == 1.0:
         return True
     if len(run_results) == 1:
         return False
 
-    prefiltering_results = [x for x in run_results if x[0] == "prefiltering"]
+    prefiltering_results = [x for x in run_results if x[1] == "prefiltering"]
     if len(prefiltering_results) == 0:
         return False
-    last_prefilter_time = prefiltering_results[-1][2]
+    last_prefilter_time = prefiltering_results[-1][3]
 
-    recalls_equal = run_results[-1][1] == run_results[-2][1]
-    one_multiply = run_results[-1][0].split("_")[-1] == "1"
-    slower_than_prefilter = run_results[-1][2] > last_prefilter_time
+    recall_not_better = run_results[-1][2] <= run_results[-2][2]
+    one_multiply = run_results[-1][1].split("_")[-1] == "1"
+    slower_than_prefilter = run_results[-1][3] > last_prefilter_time
 
-    return (recalls_equal and not one_multiply) or slower_than_prefilter
+    return (recall_not_better and not one_multiply) or slower_than_prefilter
 
 
 def initialize_dataset(dataset_name):
@@ -237,7 +261,7 @@ def run_prefiltering_experiment(all_results, dataset_name, filter_width):
 def run_postfiltering_experiment(all_results, dataset_name, filter_width, alpha):
     data, queries, filter_values, metric = initialize_dataset(dataset_name)
 
-    build_params = wp.BuildParams(64, 500, alpha, f"index_cache/{dataset_name}/")
+    build_params = wp.BuildParams(64, 500, alpha, f"index_cache/{dataset_name}/unsorted-")
     postfilter_constructor = wp.postfilter_vamana_constructor(metric, "float")
     postfilter_build_start = time.time()
     postfilter = postfilter_constructor(
@@ -268,7 +292,7 @@ def run_postfiltering_experiment(all_results, dataset_name, filter_width, alpha)
             all_results.append(
                 (
                     filter_width,
-                    f"postfiltering_{beam_size}_{final_beam_multiply}",
+                    f"postfiltering_{alpha}_{beam_size}_{final_beam_multiply}",
                     compute_recall(postfilter_results[0], query_gt, TOP_K),
                     time.time() - start,
                 )
@@ -328,7 +352,7 @@ def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_f
             all_results.append(
                 (
                     filter_width,
-                    f"vamana-tree_{alpha:.2f}_{split_factor}_{beam_size}",
+                    f"vamana-tree_{alpha:.3f}_{split_factor}_{beam_size}",
                     compute_recall(vamana_tree_results[0], query_gt, TOP_K),
                     time.time() - start,
                 )
@@ -355,7 +379,7 @@ def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_f
                 all_results.append(
                     (
                         filter_width,
-                        f"optimized-postfiltering_{alpha:.2f}_{split_factor}_{beam_size}_{final_beam_multiply}",
+                        f"optimized-postfiltering_{alpha:.3f}_{split_factor}_{beam_size}_{final_beam_multiply}",
                         compute_recall(
                             optimized_postfilter_results[0], query_gt, TOP_K
                         ),
@@ -388,7 +412,7 @@ def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_f
                 all_results.append(
                     (
                         filter_width,
-                        f"smart-combined_{alpha:.2f}_{split_factor}_{beam_size}_{final_beam_multiply}",
+                        f"smart-combined_{alpha:.3f}_{split_factor}_{beam_size}_{final_beam_multiply}",
                         compute_recall(smart_combined_results[0], query_gt, TOP_K),
                         time.time() - start,
                     )
@@ -418,7 +442,7 @@ def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_f
                 all_results.append(
                     (
                         filter_width,
-                        f"three-split_{alpha:.2f}_{split_factor}_{beam_size}_{final_beam_multiply}",
+                        f"three-split_{alpha:.3f}_{split_factor}_{beam_size}_{final_beam_multiply}",
                         compute_recall(three_split_tree_results[0], query_gt, TOP_K),
                         time.time() - start,
                     )
@@ -426,6 +450,56 @@ def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_f
                 print(all_results[-1])
                 if should_break(all_results):
                     break
+
+
+
+def run_super_optimized_postfiltering_experiment(all_results, dataset_name, filter_width, alpha, split_factor, shift_factor):
+    data, queries, filter_values, metric = initialize_dataset(dataset_name)
+
+    constructor = wp.super_optimized_postfilter_tree_constructor(metric, "float")
+    build_start = time.time()
+    build_params = wp.BuildParams(64, 500, alpha, f"index_cache/{dataset_name}-super_opt_postfiltering/")
+    super_optimized_postfilter_tree = constructor(
+        data,
+        filter_values,
+        cutoff=1_000,
+        split_factor=split_factor,
+        shift_factor=shift_factor,
+        build_params=build_params,
+    )
+    build_time = time.time() - build_start
+    print(f"Super optimized postfilter tree build time: {build_time:.3f}s")
+
+    query_filter_ranges, query_gt = get_queries_and_gt(dataset_name, filter_width)
+
+    for beam_size in BEAM_SIZES:
+        for final_beam_multiply in FINAL_MULTIPLIES:
+            query_params = wp.build_query_params(
+                k=TOP_K,
+                beam_size=beam_size,
+                final_beam_multiply=final_beam_multiply,
+                verbose=VERBOSE,
+            )
+            start = time.time()
+            postfilter_results = super_optimized_postfilter_tree.batch_search(
+                queries,
+                query_filter_ranges,
+                queries.shape[0],
+                query_params,
+            )
+            all_results.append(
+                (
+                    filter_width,
+                    f"super-postfiltering_{split_factor}_{shift_factor}_{alpha}_{beam_size}_{final_beam_multiply}",
+                    compute_recall(postfilter_results[0], query_gt, TOP_K),
+                    time.time() - start,
+                )
+            )
+            print(all_results[-1])
+            if should_break(all_results):
+                break
+
+
 
 
 def save_results(all_results, dataset_name):
@@ -454,12 +528,23 @@ for dataset_name in DATASETS:
                 run_postfiltering_experiment(
                     all_results, dataset_name, experiment_filter_width, alpha
                 )
-            for split_factor in SPLIT_FACTORS:
+            for split_factor in VAMANA_TREE_SPLIT_FACTORS:
                 run_tree_experiments(
                     all_results,
                     dataset_name,
                     experiment_filter_width,
                     alpha,
-                    args.tree_split_factor,
+                    split_factor,
                 )
+            if run_super_opt_postfiltering:
+                for split_factor in SUPER_POSTFILTERING_SPLIT_FACTORS:
+                    for shift_factor in SUPER_POSTFILTERING_SHIFT_FACTORS:
+                        run_super_optimized_postfiltering_experiment(
+                            all_results,
+                            dataset_name,
+                            experiment_filter_width,
+                            alpha,
+                            split_factor,
+                            shift_factor,
+                        )
         save_results(all_results, dataset_name)

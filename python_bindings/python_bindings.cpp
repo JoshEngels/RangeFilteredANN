@@ -37,6 +37,7 @@
 #include "python/builder.cpp"
 #include "python/vamana_index.cpp"
 #include "range_filter_tree.h"
+#include "super_optimized_postfilter_tree.h"
 
 PYBIND11_MAKE_OPAQUE(std::vector<uint32_t>);
 PYBIND11_MAKE_OPAQUE(std::vector<float>);
@@ -142,6 +143,18 @@ inline void add_variant(py::module_ &m, const Variant &variant) {
            &RangeFilterTreeIndex<T, Point, PostfilterVamanaIndex>::batch_search,
            "queries"_a, "filters"_a, "num_queries"_a, "query_method"_a,
            "query_params"_a);
+
+  py::class_<SuperOptimizedPostfilterTree<T, Point, PostfilterVamanaIndex>>(
+      m, ("SuperOptimizedPostfilterTreeIndex" + variant.agnostic_name).c_str())
+      .def(py::init<py::array_t<T>, py::array_t<float_t>, int32_t, float, float,
+                    BuildParams>(),
+           "points"_a, "filter_values"_a, "cutoff"_a = 1000,
+           "split_factor"_a = 2, "shift_factor"_a = 0.5,
+           "build_params"_a = DEFAULT_BUILD_PARAMS)
+      .def("batch_search",
+           &SuperOptimizedPostfilterTree<T, Point,
+                                         PostfilterVamanaIndex>::batch_search,
+           "queries"_a, "filters"_a, "num_queries"_a, "query_params"_a);
 }
 
 PYBIND11_MODULE(window_ann, m) {

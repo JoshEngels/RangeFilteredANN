@@ -302,6 +302,28 @@ def vamana_range_filter_tree_constructor(metric, dtype):
             raise Exception("Invalid data type " + dtype)
 
 
+def super_optimized_postfilter_tree_constructor(metric, dtype):
+    if metric == "Euclidian":
+        if dtype == "uint8":
+            return SuperOptimizedPostfilterTreeIndexUint8Euclidian
+        elif dtype == "int8":
+            return SuperOptimizedPostfilterTreeIndexInt8Euclidian
+        elif dtype == "float":
+            return SuperOptimizedPostfilterTreeIndexFloatEuclidian
+        else:
+            raise Exception("Invalid data type " + dtype)
+    elif metric == "mips":
+        if dtype == "uint8":
+            return SuperOptimizedPostfilterTreeIndexUint8Mips
+        elif dtype == "int8":
+            return SuperOptimizedPostfilterTreeIndexInt8Mips
+        elif dtype == "float":
+            return SuperOptimizedPostfilterTreeIndexFloatMips
+        else:
+            raise Exception("Invalid data type " + dtype)
+
+
+
 def build_query_params(
     k,
     beam_size,

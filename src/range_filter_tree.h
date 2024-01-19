@@ -12,7 +12,6 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
-#include <type_traits>
 #include <vector>
 
 #include "pybind11/numpy.h"
@@ -20,26 +19,13 @@
 #include "postfilter_vamana.h"
 #include "prefiltering.h"
 
+#include "tree_utils.h"
+
 using index_type = int32_t;
 
 namespace py = pybind11;
 using NeighborsAndDistances =
     std::pair<py::array_t<unsigned int>, py::array_t<float>>;
-
-template <typename T, typename Point>
-PointRange<T, Point> numpy_point_range(py::array_t<T> points) {
-  py::buffer_info buf = points.request();
-  if (buf.ndim != 2) {
-    throw std::runtime_error("NumPy array must be 2-dimensional");
-  }
-
-  auto n = buf.shape[0];         // number of points
-  auto dimension = buf.shape[1]; // dimension of each point
-
-  T *numpy_data = static_cast<T *>(buf.ptr);
-
-  return std::move(PointRange<T, Point>(numpy_data, n, dimension));
-}
 
 template <typename T, typename Point,
           template <typename, typename, typename> class RangeSpatialIndex =
@@ -64,61 +50,12 @@ struct RangeFilterTreeIndex {
   RangeFilterTreeIndex(py::array_t<T> points,
                        py::array_t<FilterType> filter_values, int32_t cutoff,
                        size_t split_factor, BuildParams build_params) {
-    py::buffer_info points_buf = points.request();
-    if (points_buf.ndim != 2) {
-      throw std::runtime_error("points numpy array must be 2-dimensional");
-    }
-    auto n = points_buf.shape[0];         // number of points
-    auto dimension = points_buf.shape[1]; // dimension of each point
-
-    py::buffer_info filter_values_buf = filter_values.request();
-    if (filter_values_buf.ndim != 1) {
-      throw std::runtime_error("filter data numpy array must be 1-dimensional");
-    }
-
-    if (filter_values_buf.shape[0] != n) {
-      throw std::runtime_error("filter data numpy array must have the same "
-                               "number of elements as the points array");
-    }
-
-    FilterType *filter_values_data =
-        static_cast<FilterType *>(filter_values_buf.ptr);
-
-    FilterList filter_values_seq =
-        FilterList(filter_values_data, filter_values_data + n);
-
-    auto filter_indices_sorted =
-        parlay::tabulate(n, [](index_type i) { return i; });
-
-    parlay::sort_inplace(filter_indices_sorted, [&](auto i, auto j) {
-      return filter_values_seq[i] < filter_values_seq[j];
-    });
-
-    T *numpy_data = static_cast<T *>(points_buf.ptr);
-
-    auto data_sorted = parlay::sequence<T>(n * dimension);
-    auto decoding = parlay::sequence<size_t>(n, 0);
-
-    parlay::parallel_for(0, n, [&](size_t sorted_id) {
-      for (size_t d = 0; d < dimension; d++) {
-        data_sorted.at(sorted_id * dimension + d) =
-            numpy_data[filter_indices_sorted.at(sorted_id) * dimension + d];
-      }
-      decoding.at(sorted_id) = filter_indices_sorted.at(sorted_id);
-    });
-
-    auto filter_values_sorted = FilterList(n);
-    parlay::parallel_for(0, n, [&](auto i) {
-      filter_values_sorted.at(i) =
-          filter_values_seq.at(filter_indices_sorted.at(i));
-    });
-
-    PointRange<T, Point> point_range =
-        PointRange<T, Point>(data_sorted.data(), n, dimension);
+    auto [sorted_point_range, sorted_filter_values, decoding] =
+        sort_python_and_convert<FilterType, T, Point>(points, filter_values);
 
     *this = RangeFilterTreeIndex<T, Point, RangeSpatialIndex, FilterType>(
-        std::make_unique<PR>(point_range), filter_values_sorted, decoding,
-        cutoff, split_factor, build_params);
+        std::make_unique<PR>(sorted_point_range), sorted_filter_values,
+        decoding, cutoff, split_factor, build_params);
   }
 
   /* the bounds here are inclusive */
@@ -156,38 +93,6 @@ struct RangeFilterTreeIndex {
       }
     });
     return std::make_pair(ids, dists);
-  }
-
-  /* not really needed but just to highlight it */
-  inline parlay::sequence<pid> self_query(const Point &query,
-                                          const FilterRange &range,
-                                          uint64_t knn,
-                                          QueryParams query_params) {
-    // Ensure that query_params knn is correct, in case we are using a default
-    // query_params
-    // TODO: Just remove knn
-    query_params.k = knn;
-    return _spatial_indices->query(query, range, query_params);
-  }
-
-  // Returns the index of the filter value that is the first filter value
-  // greater than or equal to the passed in filter value. This will be equal to
-  // (_filters.size()) if the passed in value is greater than all filter values.
-  size_t first_greater_than_or_equal_to(const FilterType &filter_value) {
-    if (_filter_values[0] >= filter_value) {
-      return 0;
-    }
-    size_t start = 0;
-    size_t end = _filter_values.size();
-    while (start + 1 < end) {
-      size_t mid = (start + end) / 2;
-      if (_filter_values[mid] >= filter_value) {
-        end = mid;
-      } else {
-        start = mid;
-      }
-    }
-    return end;
   }
 
 private:
@@ -237,7 +142,6 @@ private:
     _bucket_offsets.push_back({0, _filter_values.size()});
 
     // TODO: Parallelize the outer loop?
-    // TODO: Be able to pass in index location
 
     while (_bucket_offsets.back().at(1) > cutoff) {
 
@@ -399,8 +303,10 @@ private:
 
     size_t knn = query_params.k;
 
-    auto inclusive_start = first_greater_than_or_equal_to(range.first);
-    auto exclusive_end = first_greater_than_or_equal_to(range.second);
+    auto inclusive_start =
+        first_greater_than_or_equal_to<FilterType>(range.first, _filter_values);
+    auto exclusive_end = first_greater_than_or_equal_to<FilterType>(
+        range.second, _filter_values);
 
     auto center_ranges_opt =
         find_largest_ranges_within_query_range(inclusive_start, exclusive_end);
@@ -505,8 +411,10 @@ private:
 
     size_t knn = query_params.k;
 
-    auto inclusive_start = first_greater_than_or_equal_to(range.first);
-    auto exclusive_end = first_greater_than_or_equal_to(range.second);
+    auto inclusive_start =
+        first_greater_than_or_equal_to<FilterType>(range.first, _filter_values);
+    auto exclusive_end = first_greater_than_or_equal_to<FilterType>(
+        range.second, _filter_values);
 
     if (4 * (exclusive_end - inclusive_start) < _cutoff) {
       return fenwick_tree_search(query, range, query_params);
@@ -563,16 +471,18 @@ private:
   }
 
   parlay::sequence<pid> three_split_search(const Point &query,
-                                           const FilterRange &filter_range,
+                                           const FilterRange &range,
                                            QueryParams query_params) {
 
     // if the query range is entirely outside the index range, return
-    if (check_empty(filter_range)) {
+    if (check_empty(range)) {
       return parlay::sequence<pid>();
     }
 
-    auto inclusive_start = first_greater_than_or_equal_to(filter_range.first);
-    auto exclusive_end = first_greater_than_or_equal_to(filter_range.second);
+    auto inclusive_start =
+        first_greater_than_or_equal_to<FilterType>(range.first, _filter_values);
+    auto exclusive_end = first_greater_than_or_equal_to<FilterType>(
+        range.second, _filter_values);
 
     auto center_ranges_opt =
         find_largest_ranges_within_query_range(inclusive_start, exclusive_end);
@@ -588,7 +498,7 @@ private:
                               query_params.verbose};
 
     if (!center_ranges_opt.has_value()) {
-      return fenwick_tree_search(query, filter_range, qp_fenwick);
+      return fenwick_tree_search(query, range, qp_fenwick);
     }
 
     SequentialBuckets center_ranges = center_ranges_opt.value();
@@ -597,24 +507,24 @@ private:
          bucket_index < center_ranges.bucket_end_index; bucket_index++) {
       frontiers.push_back(_spatial_indices.at(center_ranges.bucket_row)
                               .at(bucket_index)
-                              ->query(query, filter_range, qp_fenwick));
+                              ->query(query, range, qp_fenwick));
     }
 
     size_t left_space = center_ranges.start_filter_cover - inclusive_start;
     size_t right_space = exclusive_end - center_ranges.end_filter_cover;
 
     if (left_space > 0) {
-      FilterRange left_filter_range = std::make_pair(
-          filter_range.first, _filter_values[center_ranges.start_filter_cover]);
-      frontiers.push_back(optimized_postfiltering_search(
-          query, left_filter_range, query_params));
+      FilterRange left_range = std::make_pair(
+          range.first, _filter_values[center_ranges.start_filter_cover]);
+      frontiers.push_back(
+          optimized_postfiltering_search(query, left_range, query_params));
     }
 
     if (right_space > 0) {
-      FilterRange right_filter_range = std::make_pair(
-          _filter_values[center_ranges.end_filter_cover], filter_range.second);
-      frontiers.push_back(optimized_postfiltering_search(
-          query, right_filter_range, query_params));
+      FilterRange right_range = std::make_pair(
+          _filter_values[center_ranges.end_filter_cover], range.second);
+      frontiers.push_back(
+          optimized_postfiltering_search(query, right_range, query_params));
     }
 
     parlay::sequence<pid> frontier;
