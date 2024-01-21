@@ -95,6 +95,6 @@ def plot(dataset_name):
 
 
 plot("glove-100-angular")
-plot("deep-image-96-angular")
 plot("sift-128-euclidean")
+plot("deep-image-96-angular")
 plot("redcaps-512-angular")

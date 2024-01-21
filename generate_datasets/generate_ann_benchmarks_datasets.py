@@ -4,7 +4,7 @@ import os
 import urllib.request
 from filter_generation_utils import generate_filters
 from pathlib import Path
-
+import argparse
 
 def parse_ann_benchmarks_hdf5(data_path):
     with h5py.File(data_path, "r") as file:
@@ -60,6 +60,10 @@ def create_dataset(dataset_name, output_dir):
 
 
 output_dir = Path("/data/parap/storage/jae/new_filtered_ann_datasets/")
-create_dataset("sift", output_dir)
-create_dataset("glove", output_dir)
-create_dataset("deep1b", output_dir)
+os.makedirs(output_dir, exist_ok=True)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("dataset_name", choices=download_urls.keys())
+args = parser.parse_args()
+
+create_dataset(args.dataset_name, output_dir)

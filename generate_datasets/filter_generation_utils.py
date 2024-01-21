@@ -87,7 +87,7 @@ def generate_filters(
         all_filter_ranges.append(filter_ranges)
         np.save(
             output_dir
-            / f"{dataset_friendly_name}_queries_2pow({filter_width_power})_ranges.npy",
+            / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy",
             filter_ranges,
         )
 
@@ -119,6 +119,6 @@ def generate_filters(
     for i in range(len(EXPERIMENT_FILTER_POWERS)):
         all_gts[i] = np.array(all_gts[i])
         np.save(
-            output_dir / f"{dataset_friendly_name}_queries_2pow({i})_gt.npy",
+            output_dir / f"{dataset_friendly_name}_queries_2pow{'-' if i != 0 else ''}{i}_gt.npy",
             all_gts[i],
         )

@@ -6,11 +6,11 @@ import time
 import sys
 import multiprocessing
 
-DATASET_FOLDER = "/data/parap/storage/jae/filtered_ann_datasets"
+DATASET_FOLDER = "/data/parap/storage/jae/new_filtered_ann_datasets"
 DATASETS = [
+    "sift-128-euclidean",
     "glove-100-angular",
     "deep-image-96-angular",
-    "sift-128-euclidean",
     "redcaps-512-angular",
 ]
 
@@ -21,7 +21,7 @@ for dataset in DATASETS:
     os.makedirs(f"index_cache/{dataset}/", exist_ok=True)
     os.makedirs(f"index_cache/{dataset}-super_opt_postfiltering/", exist_ok=True)
 
-EXPERIMENT_FILTER_WIDTHS = [0.0001, 0.001, 0.01, 0.1, 0.2, 0.5, 1]
+EXPERIMENT_FILTER_WIDTHS = [f"2pow{i}" for i in range(-16, 1)]
 
 TOP_K = 10
 BEAM_SIZES = [10, 20, 40, 80, 160, 320, 640, 1280]
@@ -240,7 +240,7 @@ def run_prefiltering_experiment(all_results, dataset_name, filter_width):
     prefilter_index = prefilter_constructor(data, filter_values)
     prefilter_build_end = time.time()
     prefilter_build_time = prefilter_build_end - prefilter_build_start
-    print(f"Prefiltering index build time: {prefilter_build_time:.3f}s")
+    print(f"Prefiltering index build time: {prefilter_build_time:.3f}s", flush=True)
 
     query_filter_ranges, query_gt = get_queries_and_gt(dataset_name, filter_width)
 
@@ -272,7 +272,7 @@ def run_postfiltering_experiment(all_results, dataset_name, filter_width, alpha)
         build_params
     )
     postfilter_build_time = time.time() - postfilter_build_start
-    print(f"Naive postfilter build time: {postfilter_build_time:.3f}s")
+    print(f"Naive postfilter build time: {postfilter_build_time:.3f}s", flush=True)
 
     query_filter_ranges, query_gt = get_queries_and_gt(dataset_name, filter_width)
 
@@ -317,7 +317,7 @@ def get_vamana_tree(data, filter_values, metric, alpha, split_factor):
     )
     vamana_tree_build_end = time.time()
     vamana_tree_build_time = vamana_tree_build_end - vamana_tree_build_start
-    print(f"Vamana tree build time: {vamana_tree_build_time:.3f}s")
+    print(f"Vamana tree build time: {vamana_tree_build_time:.3f}s", flush=True)
 
     return vamana_tree
 
@@ -470,7 +470,7 @@ def run_super_optimized_postfiltering_experiment(all_results, dataset_name, filt
         build_params=build_params,
     )
     build_time = time.time() - build_start
-    print(f"Super optimized postfilter tree build time: {build_time:.3f}s")
+    print(f"Super optimized postfilter tree build time: {build_time:.3f}s", flush=True)
 
     query_filter_ranges, query_gt = get_queries_and_gt(dataset_name, filter_width)
 

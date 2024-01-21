@@ -8,6 +8,7 @@
 #include "algorithms/utils/point_range.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -186,6 +187,8 @@ private:
   parlay::sequence<pid> super_optimized_postfiltering_search(
       const Point &query, const FilterRange &range, QueryParams query_params) {
 
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     // if the query range is entirely outside the index range, return
     if (check_empty(range)) {
       return parlay::sequence<pid>();
@@ -200,6 +203,11 @@ private:
 
     for (current_row = _bucket_sizes.size() - 1; current_row >= 0;
          current_row--) {
+      if (current_row == 0) {
+        current_index = 0;
+        break;
+      }
+
       size_t bucket_size = _bucket_sizes.at(current_row);
       if (bucket_size < exclusive_end - inclusive_start) {
         continue;
@@ -215,6 +223,9 @@ private:
 
       for (size_t test_bucket = first_possible_bucket;
            test_bucket <= last_possible_bucket; test_bucket++) {
+        if (query_params.verbose) {
+          std::cout << "Testing bucket " << test_bucket << std::endl;
+        }
         auto bucket_start = test_bucket * bucket_shift;
         auto bucket_end =
             std::min(bucket_start + bucket_size, _filter_values.size());
@@ -233,8 +244,28 @@ private:
 
   done:
 
-    return _spatial_indices.at(current_row)
-        .at(current_index)
-        ->query(query, range, query_params);
+    auto bucket_end_time = std::chrono::high_resolution_clock::now();
+    if (query_params.verbose) {
+      std::cout << "Time to find bucket: "
+                << std::chrono::duration_cast<std::chrono::nanoseconds>(
+                       bucket_end_time - start_time)
+                       .count()
+                << "ns" << std::endl;
+    }
+
+    auto result = _spatial_indices.at(current_row)
+                      .at(current_index)
+                      ->query(query, range, query_params);
+
+    if (query_params.verbose) {
+      std::cout << "Time to do searcht: "
+                << std::chrono::duration_cast<std::chrono::nanoseconds>(
+                       std::chrono::high_resolution_clock::now() -
+                       bucket_end_time)
+                       .count()
+                << "ns" << std::endl;
+    }
+
+    return result;
   }
 };
