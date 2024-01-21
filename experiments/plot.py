@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-
+import os
 
 def pareto_front(x, y):
     sorted_indices = sorted(range(len(y)), key=lambda k: -y[k])
@@ -41,10 +41,19 @@ next_unused_cmap_index = 0
 cmap_colors = {}
 
 
+filter_out_map = {
+    "sift-128-euclidean": [-16, -15, -14, -13, -12], 
+    "glove-100-angular": [-16, -15, -14, -13, -12],
+    "deep-image-96-angular": [-1, -3, -5, -7, -9, -11, -13, -15],
+    "redcaps-512-angular": [-1, -3, -5, -7, -9, -11, -13, -15]}
+
 def plot(dataset_name):
     global next_unused_cmap_index
 
     df = pd.read_csv(f"results/{dataset_name}_results.csv")
+
+    filter_out = [f"2pow{i}" for i in filter_out_map[dataset_name]]
+    df = df[~df["filter_width"].isin(filter_out)]
 
     df["method"] = df["method"].str.split("_").str[0]
 
@@ -81,7 +90,7 @@ def plot(dataset_name):
             ax.plot(x, y, label=method, markersize=20, marker="x", color=color)
         else:
             ax.plot(x, y, label=method, color=color)
-        ax.set_title(f"Filter Width: {filter_width}")
+        ax.set_title(f"Filter Width: {filter_width.replace('2pow', '2^')}")
 
     fig.supxlabel("Recall")
     fig.supylabel("Queries Per Second")
@@ -91,10 +100,12 @@ def plot(dataset_name):
     fig.suptitle(f"Pareto Fronts by Filter Width on {dataset_name}")
 
     plt.tight_layout()
-    plt.savefig(f"results/{dataset_name}_results.png", bbox_inches="tight")
+    plt.savefig(f"results/plots/{dataset_name}_results.pdf", bbox_inches="tight")
 
+if not os.path.exists("results/plots"):
+    os.makedirs("results/plots")
 
-plot("glove-100-angular")
 plot("sift-128-euclidean")
+plot("glove-100-angular")
 plot("deep-image-96-angular")
 plot("redcaps-512-angular")
