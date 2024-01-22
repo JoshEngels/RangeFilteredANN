@@ -24,14 +24,12 @@ os.makedirs("index_cache/postfilter_vamana", exist_ok=True)
 os.makedirs("results", exist_ok=True)
 
 TOP_K = 10
-# TODO: change to None
 # Only use a subset of data and query for testing
-DATA_SUBSET = 100
-QUERY_SUBSET = 100
-#TODO: add more
-EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(1)] # 17
+DATA_SUBSET = None
+QUERY_SUBSET = None
+EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(17)]
 # used for ef for HNSW query param
-BEAM_SIZES = [10, 20] #TODO: add more , 40, 80, 160, 320 
+BEAM_SIZES = [10, 20, 40, 80, 160, 320]
 INDEX_TYPES = ["HNSW"]  # "DISKANN", "IVF_PQ", "IVF_SQ8", "HNSW", "SCANN", "IVF_FLAT", "FLAT"
 
 dataset_folder = "/data/parap/storage/jae/new_filtered_ann_datasets"
@@ -95,9 +93,9 @@ for collection in collections:
 
 for dataset_name in [
     "glove-100-angular",
-    # "deep-image-96-angular",
-    # "sift-128-euclidean",
-    # "redcaps-512-angular",
+    "deep-image-96-angular",
+    "sift-128-euclidean",
+    "redcaps-512-angular",
 ]:
     output_file = f"results/{dataset_name}_milvus_results.csv"
 
