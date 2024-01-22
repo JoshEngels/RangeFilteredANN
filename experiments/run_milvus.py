@@ -154,6 +154,9 @@ for dataset_name in [
         search_params = get_query_params(index, num_entities)
         print("index_params: ", index_params)
         print("search_params: ", search_params)
+        formatted_index_params = '_'.join([f'{key}_{value}' for key, value in index_params["params"].items()])
+        formatted_search_params = '_'.join([f'{key}_{value}' for key, value in search_params.items()])
+
 
 
         start_time = time.time()
@@ -225,9 +228,9 @@ for dataset_name in [
             average_recall = compute_recall(query_gt, search_results, TOP_K)
             print("average recall = {:.4f}".format(average_recall ))
             print("search latency = {:.4f}s".format(total_time ))
-            # TODO (shangdi): add params
+            
             run_results.append((
-                    f"milvus_{index}",
+                    f"milvus_{index}_{formatted_index_params}_{formatted_search_params}",
                     average_recall,
                     total_time,
                 ))
