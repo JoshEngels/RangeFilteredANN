@@ -11,16 +11,17 @@ from pymilvus import (
     DataType,
     Collection,
 )
+from tqdm import tqdm
 
 # Ensure index_cache/postfiler_vamana exists
 os.makedirs("index_cache/postfilter_vamana", exist_ok=True)
 os.makedirs("results", exist_ok=True)
 
 TOP_K = 10
-EXPERIMENT_FILTER_WIDTHS = [0.0001] #, 0.001, 0.01, 0.1, 0.2, 0.5, 1
+EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(1)] # 17
 INDEX_TYPES = ["IVF_FLAT"]  # , "IVF_PQ", "IVF_SQ8", "HNSW", "SCANN", "DISKANN", "FLAT"
 
-dataset_folder = "/data/parap/storage/jae/filtered_ann_datasets"
+dataset_folder = "/data/parap/storage/jae/new_filtered_ann_datasets"
 
 def compute_recall(gt_neighbors, results, top_k):
     recall = 0
@@ -72,6 +73,7 @@ def get_query_params(index_type):
 
 # connect to milvus
 connections.connect("default", host="localhost", port="19530")
+print("Connected to Milvus.")
 # remove all existing data
 collections = utility.list_collections()
 for collection in collections:
@@ -79,9 +81,9 @@ for collection in collections:
 
 for dataset_name in [
     "glove-100-angular",
-    "deep-image-96-angular",
-    "sift-128-euclidean",
-    "redcaps-512-angular",
+    # "deep-image-96-angular",
+    # "sift-128-euclidean",
+    # "redcaps-512-angular",
 ]:
     output_file = f"results/{dataset_name}_milvus_results.csv"
 
@@ -90,12 +92,17 @@ for dataset_name in [
         with open(output_file, "a") as f:
             f.write("filter_width,method,recall,average_time,qps,threads\n")
 
+    print("Loading data.")
     data = np.load(os.path.join(dataset_folder, f"{dataset_name}.npy"))
     num_entities, dim = data.shape
 
+    print("Loading queries.")
     queries = np.load(os.path.join(dataset_folder, f"{dataset_name}_queries.npy"))
+    print("queries.shape, " queries.shape)
+    # TODO: remove
     queries = queries[:1000]
 
+    print("Loading filter values.")
     filter_values = np.load(
         os.path.join(dataset_folder, f"{dataset_name}_filter-values.npy")
     )
@@ -116,6 +123,7 @@ for dataset_name in [
     schema = CollectionSchema(fields, "points with id and priority")
     points = Collection("points", schema, consistency_level="Strong")
 
+    print("Inserting points to database.")
     entities = [
         [i for i in range(num_entities)],
         filter_values.tolist(),
@@ -127,6 +135,7 @@ for dataset_name in [
 
     # use different indices
     for index in INDEX_TYPES:
+        print("Building index ", index)
         index_params = get_index_params(index)
         search_params = get_query_params(index)
 
@@ -138,10 +147,11 @@ for dataset_name in [
         utility.index_building_progress("points")
 
         for filter_width in EXPERIMENT_FILTER_WIDTHS:
+            print("filter width: 2pow" filter_width)
             run_results = []
             query_filter_ranges = np.load(
                 os.path.join(
-                    dataset_folder, f"{dataset_name}_queries_{filter_width}_ranges.npy"
+                    dataset_folder, f"{dataset_name}_queries_2pow{filter_width}_ranges.npy"
                 )
             )
             # query_gt = np.load(
@@ -149,28 +159,32 @@ for dataset_name in [
             #         dataset_folder, f"{dataset_name}_queries_{filter_width}_gt.npy"
             #     )
             # )
-            # print(query_filter_ranges.shape)
-            # print(query_gt.shape)
-            filter_start = query_filter_ranges[0][0]
-            filter_end = query_filter_ranges[0][1]
-            expr = "(priority > %s) && (priority < %s)" % (filter_start, filter_end)
+            print("query_filter_ranges.shape", query_filter_ranges.shape)
+            print("query_gt.shape", query_gt.shape)
+            times = []
+            for ith_point in tqdm(range(len(query_filter_ranges))):
+                filter_start = query_filter_ranges[ith_point][0]
+                filter_end = query_filter_ranges[ith_point][1]
+                expr = "(priority > %s) && (priority < %s)" % (filter_start, filter_end)
 
-            start_time = time.time()
-            # TODO (shangdi): use our filtering range 
-            result = points.search(
-                queries, "embeddings", search_params, limit=TOP_K, expr=expr
-            )  # , output_fields=["priority"]
-            end_time = time.time()
-            print("search latency = {:.4f}s".format(end_time - start_time))
-            results = []
-            for hits in result:
-                result_i = []
-                for hit in hits:
-                    # possible to return less than TOP_K results
-                    result_i.append(hit.id) # , priority field: {hit.entity.get('priority')}
-                results.append(result_i)
-            # TODO (shangdi): compute recall and write csv file
-
+                start_time = time.time()
+                # TODO (shangdi): use our filtering range 
+                result = points.search(
+                    [queries[ith_point]], "embeddings", search_params, limit=TOP_K, expr=expr
+                )  # , output_fields=["priority"]
+                end_time = time.time()
+                times.append(end_time - start_time)
+                
+                # results = []
+                # for hits in result:
+                #     result_i = []
+                #     for hit in hits:
+                #         # possible to return less than TOP_K results
+                #         result_i.append(hit.id) # , priority field: {hit.entity.get('priority')}
+                #     results.append(result_i)
+                # TODO (shangdi): compute recall and write csv file
+            total_time = sum(times)
+            print("search latency = {:.4f}s".format(total_time ))
         # delete index
         points.release()
         points.drop_index()
