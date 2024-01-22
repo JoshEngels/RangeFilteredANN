@@ -192,7 +192,7 @@ def should_break(run_results):
 
     recall_not_better = run_results[-1][2] <= run_results[-2][2]
     one_multiply = run_results[-1][1].split("_")[-1] == "1"
-    if (recall_not_better and not one_multiply):
+    if recall_not_better and not one_multiply:
         return True
 
     prefiltering_results = [x for x in run_results if x[1] == "prefiltering"]
@@ -263,14 +263,12 @@ def run_prefiltering_experiment(all_results, dataset_name, filter_width):
 def run_postfiltering_experiment(all_results, dataset_name, filter_width, alpha):
     data, queries, filter_values, metric = initialize_dataset(dataset_name)
 
-    build_params = wp.BuildParams(64, 500, alpha, f"index_cache/{dataset_name}/unsorted-")
+    build_params = wp.BuildParams(
+        64, 500, alpha, f"index_cache/{dataset_name}/unsorted-"
+    )
     postfilter_constructor = wp.postfilter_vamana_constructor(metric, "float")
     postfilter_build_start = time.time()
-    postfilter = postfilter_constructor(
-        data,
-        filter_values,
-        build_params
-    )
+    postfilter = postfilter_constructor(data, filter_values, build_params)
     postfilter_build_time = time.time() - postfilter_build_start
     print(f"Naive postfilter build time: {postfilter_build_time:.3f}s", flush=True)
 
@@ -454,13 +452,16 @@ def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_f
                     break
 
 
-
-def run_super_optimized_postfiltering_experiment(all_results, dataset_name, filter_width, alpha, split_factor, shift_factor):
+def run_super_optimized_postfiltering_experiment(
+    all_results, dataset_name, filter_width, alpha, split_factor, shift_factor
+):
     data, queries, filter_values, metric = initialize_dataset(dataset_name)
 
     constructor = wp.super_optimized_postfilter_tree_constructor(metric, "float")
     build_start = time.time()
-    build_params = wp.BuildParams(64, 500, alpha, f"index_cache/{dataset_name}-super_opt_postfiltering/")
+    build_params = wp.BuildParams(
+        64, 500, alpha, f"index_cache/{dataset_name}-super_opt_postfiltering/"
+    )
     super_optimized_postfilter_tree = constructor(
         data,
         filter_values,
@@ -502,8 +503,6 @@ def run_super_optimized_postfiltering_experiment(all_results, dataset_name, filt
                 break
 
 
-
-
 def save_results(all_results, dataset_name):
     output_file = f"results/{args.results_file_prefix}{dataset_name}_results.csv"
 
@@ -524,7 +523,9 @@ for dataset_name in DATASETS:
     for experiment_filter_width in EXPERIMENT_FILTER_WIDTHS:
         all_results = []
         if run_prefiltering:
-            run_prefiltering_experiment(all_results, dataset_name, experiment_filter_width)
+            run_prefiltering_experiment(
+                all_results, dataset_name, experiment_filter_width
+            )
         for alpha in ALPHAS:
             if run_postfiltering:
                 run_postfiltering_experiment(

@@ -323,7 +323,6 @@ def super_optimized_postfilter_tree_constructor(metric, dtype):
             raise Exception("Invalid data type " + dtype)
 
 
-
 def build_query_params(
     k,
     beam_size,

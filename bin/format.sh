@@ -12,3 +12,4 @@ clang-format -i $BASEDIR/../tests/*.cpp
 
 # Python formatting
 black $BASEDIR/../generate_datasets/*.py
+black $BASEDIR/../experiments/*.py

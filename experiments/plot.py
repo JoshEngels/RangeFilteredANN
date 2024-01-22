@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
+
 def pareto_front(x, y):
     sorted_indices = sorted(range(len(y)), key=lambda k: -y[k])
     x_sorted = x[sorted_indices]
@@ -42,10 +43,12 @@ cmap_colors = {}
 
 
 filter_out_map = {
-    "sift-128-euclidean": [-16, -15, -14, -13, -12], 
+    "sift-128-euclidean": [-16, -15, -14, -13, -12],
     "glove-100-angular": [-16, -15, -14, -13, -12],
     "deep-image-96-angular": [-1, -3, -5, -7, -9, -11, -13, -15, -16],
-    "redcaps-512-angular": [-1, -3, -5, -7, -9, -11, -13, -15, -16]}
+    "redcaps-512-angular": [-1, -3, -5, -7, -9, -11, -13, -15, -16],
+}
+
 
 def plot(dataset_name):
     global next_unused_cmap_index
@@ -101,6 +104,7 @@ def plot(dataset_name):
 
     plt.tight_layout()
     plt.savefig(f"results/plots/{dataset_name}_results.pdf", bbox_inches="tight")
+
 
 if not os.path.exists("results/plots"):
     os.makedirs("results/plots")
