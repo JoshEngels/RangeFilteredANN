@@ -24,4 +24,28 @@ def write_small_example():
   print("TSV file 'output.tsv' has been created.")
 
 
-write_small_example()
+# write_small_example()
+import psycopg2
+
+# Set the connection parameters
+db_params = {
+    'dbname': 'vectordb',
+    'user': 'vectordb',
+    'password': 'vectordb',
+    'host': '172.17.0.2',  # Use the host machine's IP address
+    'port': '5432',  # The default PostgreSQL port
+}
+
+# Establish the database connection
+conn = psycopg2.connect(**db_params)
+print("connected")
+# Create a cursor
+cursor = conn.cursor()
+
+# Now you can execute SQL queries
+cursor.execute("SELECT * FROM t_table;")
+rows = cursor.fetchall()
+print(rows)
+# Close the cursor and connection when done
+cursor.close()
+conn.close()
