@@ -264,11 +264,11 @@ for dataset_name in DATASETS:
                     )
                 )
 
-        with open(output_file, "a") as f:
-            for name, recall, total_time in run_results:
-                f.write(
-                    f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{THREADS}\n"
-                )
+            with open(output_file, "a") as f:
+                for name, recall, total_time in run_results:
+                    f.write(
+                        f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{THREADS}\n"
+                    )
         # delete index
         points.release()
         points.drop_index()

@@ -14,7 +14,7 @@ cp RangeFilteredANN/experiments/*.yml ./
 sudo docker compose up -d
 
 # prepare to connect to milvus
-docker port milvus-standalone 19530/tcp
+sudo docker port milvus-standalone 19530/tcp
 
 # test
 python3 tests/test_milvus_connection.py 
