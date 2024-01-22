@@ -1,0 +1,30 @@
+## Milvus
+
+```bash
+# start docker
+sudo systemctl start docker
+
+# copy yaml and yml file to home directory / from experiments/
+cp RangeFilteredANN/experiments/*.yaml ./
+cp RangeFilteredANN/experiments/*.yml ./
+
+# start milvus
+sudo docker compose up -d
+
+# prepare to connect to milvus
+docker port milvus-standalone 19530/tcp
+
+# test
+python3 tests/test_milvus_connection.py 
+```
+
+Run
+```bash
+python3 run_milvus.py 
+```
+Note that if you want to change the number of threads used, you need to change both THREADS in run_milvus.py and OMP_NUM_THREADS in docker-copmose.yml, and re-start docker. 
+
+stop milvus
+```bash
+sudo docker compose down
+```
