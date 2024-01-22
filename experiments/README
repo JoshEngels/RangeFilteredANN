@@ -1,5 +1,7 @@
 ## Milvus
 
+Install: pymilvus (pip install), [Docker Engine](https://docs.docker.com/engine/install/ubuntu/), and [Docker Compose](https://docs.docker.com/compose/install/linux/).
+
 ```bash
 # start docker
 sudo systemctl start docker
