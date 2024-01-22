@@ -27,6 +27,22 @@ def write_small_example():
 # write_small_example()
 import psycopg2
 
+
+def drop_all_tables(cursor):
+  # Get a list of all table names in the database
+  cursor.execute("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public';")
+  table_names = cursor.fetchall()
+
+  # Generate and execute DROP TABLE statements for each table
+  for table_name in table_names:
+      table_name = table_name[0]  # Extract the table name from the result tuple
+      drop_table_query = f"DROP TABLE IF EXISTS {table_name} CASCADE;"
+      cursor.execute(drop_table_query)
+      print(f"Dropped table: {table_name}")
+
+  # Commit the transaction
+  conn.commit()
+
 # Set the connection parameters
 db_params = {
     'dbname': 'vectordb',
@@ -42,7 +58,21 @@ print("connected")
 # Create a cursor
 cursor = conn.cursor()
 
-# Now you can execute SQL queries
+# data must be in list, not numpy array
+data = [[1, 2, 3], [4, 5, 6]]
+filter_values = [0.1, 0.2]
+ids = list(range(len(data)))
+
+values_to_insert = [(id_value, filter_value, vector_value) for id_value, filter_value, vector_value in zip(ids, filter_values, data)]
+
+
+drop_all_tables(cursor)
+
+cursor.execute("create table t_table(id int, filter REAL, vector_1 REAL[3]);")
+# cursor.execute("INSERT INTO my_table (data_column) VALUES (%s);", (psycopg2.Binary(binary_data),)
+insert_query = "INSERT INTO t_table(id, filter, vector_1) VALUES (%s, %s, %s);"
+cursor.executemany(insert_query, values_to_insert)
+
 cursor.execute("SELECT * FROM t_table;")
 rows = cursor.fetchall()
 print(rows)
