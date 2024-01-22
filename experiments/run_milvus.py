@@ -12,6 +12,8 @@ from pymilvus import (
     Collection,
 )
 from tqdm import tqdm
+from math import sqrt 
+from multiprocessing import Pool
 
 # Ensure index_cache/postfiler_vamana exists
 os.makedirs("index_cache/postfilter_vamana", exist_ok=True)
@@ -31,13 +33,13 @@ def compute_recall(gt_neighbors, results, top_k):
         recall += len(gt.intersection(res)) / len(gt)
     return recall / len(gt_neighbors)  # average recall per query
 
-def get_index_params(index_type):
+def get_index_params(index_type, n):
     params = {
         "FLAT": {},
-        "IVF_FLAT": {"nlist": 128},  # TODO: add more parameters
-        "IVF_SQ8": {"nlist": 128},  # TODO: add more parameters
-        "IVF_PQ": {"nlist": 128, "m": 10},  # TODO: add more parameters. dim mod m == 0
-        "SCANN": {"nlist": 128},  # TODO: add more parameters.
+        "IVF_FLAT": {"nlist": int(sqrt(n))},  # TODO: add more parameters
+        "IVF_SQ8": {"nlist": int(sqrt(n))},  # TODO: add more parameters
+        "IVF_PQ": {"nlist": int(sqrt(n)), "m": 10},  # TODO: add more parameters. dim mod m == 0
+        "SCANN": {"nlist": int(sqrt(n))},  # TODO: add more parameters.
         "HNSW": {"M": 128, "efConstruction": 128},
         "DISKANN": {},
     }
@@ -53,14 +55,14 @@ def get_index_params(index_type):
     return index
 
 
-def get_query_params(index_type):
+def get_query_params(index_type, n):
     params = {
         "FLAT": {},
-        "IVF_FLAT": {"nprobe": 10},  # range [1, nlist] TODO: add more parameters
-        "IVF_SQ8": {"nprobe": 10},  # range [1, nlist] TODO: add more parameters
-        "IVF_PQ": {"nprobe": 10},  # range [1, nlist] TODO: add more parameters
+        "IVF_FLAT": {"nprobe": int(sqrt(n))},  # range [1, nlist] TODO: add more parameters
+        "IVF_SQ8": {"nprobe": int(sqrt(n))},  # range [1, nlist] TODO: add more parameters
+        "IVF_PQ": {"nprobe": int(sqrt(n))},  # range [1, nlist] TODO: add more parameters
         "SCANN": {
-            "nprobe": 10,
+            "nprobe": int(sqrt(n)),
             "reorder_k": TOP_K,
         },  # range [1, nlist] TODO: add more parameters
         "HNSW": {"ef": 50},
@@ -95,10 +97,11 @@ for dataset_name in [
     print("Loading data.")
     data = np.load(os.path.join(dataset_folder, f"{dataset_name}.npy"))
     num_entities, dim = data.shape
+    print("data.shape, ", data.shape)
 
     print("Loading queries.")
     queries = np.load(os.path.join(dataset_folder, f"{dataset_name}_queries.npy"))
-    print("queries.shape, " queries.shape)
+    print("queries.shape, ", queries.shape)
     # TODO: remove
     queries = queries[:1000]
 
@@ -106,6 +109,7 @@ for dataset_name in [
     filter_values = np.load(
         os.path.join(dataset_folder, f"{dataset_name}_filter-values.npy")
     )
+    print("filter.shape, ", filter_values.shape)
 
     metric = "IP" if "angular" in dataset_name else "L2"
 
@@ -136,8 +140,11 @@ for dataset_name in [
     # use different indices
     for index in INDEX_TYPES:
         print("Building index ", index)
-        index_params = get_index_params(index)
-        search_params = get_query_params(index)
+        index_params = get_index_params(index, num_entities)
+        search_params = get_query_params(index, num_entities)
+        print("index_params: ", index_params)
+        print("search_params: ", search_params)
+
 
         start_time = time.time()
         points.create_index("embeddings", index_params)
@@ -147,33 +154,43 @@ for dataset_name in [
         utility.index_building_progress("points")
 
         for filter_width in EXPERIMENT_FILTER_WIDTHS:
-            print("filter width: 2pow" filter_width)
+            print("filter width: 2pow", filter_width)
             run_results = []
             query_filter_ranges = np.load(
                 os.path.join(
                     dataset_folder, f"{dataset_name}_queries_2pow{filter_width}_ranges.npy"
                 )
             )
-            # query_gt = np.load(
-            #     os.path.join(
-            #         dataset_folder, f"{dataset_name}_queries_{filter_width}_gt.npy"
-            #     )
-            # )
+            query_gt = np.load(
+                os.path.join(
+                    dataset_folder, f"{dataset_name}_queries_2pow{filter_width}_gt.npy"
+                )
+            )
             print("query_filter_ranges.shape", query_filter_ranges.shape)
             print("query_gt.shape", query_gt.shape)
-            times = []
-            for ith_point in tqdm(range(len(query_filter_ranges))):
+            times = np.zeros(len(query_filter_ranges))
+            # Perform the search
+            def search_point(ith_point):
                 filter_start = query_filter_ranges[ith_point][0]
                 filter_end = query_filter_ranges[ith_point][1]
                 expr = "(priority > %s) && (priority < %s)" % (filter_start, filter_end)
 
                 start_time = time.time()
-                # TODO (shangdi): use our filtering range 
                 result = points.search(
                     [queries[ith_point]], "embeddings", search_params, limit=TOP_K, expr=expr
-                )  # , output_fields=["priority"]
+                )
                 end_time = time.time()
-                times.append(end_time - start_time)
+                times[ith_point] = end_time - start_time
+                return times[ith_point]
+
+            num_processes = 4  # Adjust this to the desired number of parallel processes
+            
+            # Create a Pool of worker processes
+            with Pool(num_processes) as pool:
+                # Use tqdm to track progress
+                for time_taken in tqdm(pool.imap_unordered(search_point, range(len(query_filter_ranges)))):
+                    # times.append(time_taken)
+                    pass
                 
                 # results = []
                 # for hits in result:
