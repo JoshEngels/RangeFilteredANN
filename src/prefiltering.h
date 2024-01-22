@@ -27,7 +27,7 @@ using pid = std::pair<index_type, float>;
  * prefiltering should probably be a fenwick tree */
 template <typename T, class Point, class PR = SubsetPointRange<T, Point>>
 struct PrefilterIndex {
-  std::unique_ptr<PR> points;
+  std::shared_ptr<PR> points;
   parlay::sequence<index_type>
       indices; // the indices of the points in the original dataset
   parlay::sequence<FilterType> filter_values;
@@ -38,7 +38,7 @@ struct PrefilterIndex {
   std::pair<FilterType, FilterType> range;
 
   // BuildParams is unused for now but kept for API consistency
-  PrefilterIndex(std::unique_ptr<PR> &&points,
+  PrefilterIndex(std::shared_ptr<PR> &&points,
                  parlay::sequence<FilterType> filter_values,
                  BuildParams build_params)
       : points(std::move(points)), filter_values(std::move(filter_values)) {
@@ -85,7 +85,7 @@ struct PrefilterIndex {
     // avoiding this copy may have dire consequences from gc
     T *numpy_data = static_cast<T *>(points_buf.ptr);
 
-    this->points = std::make_unique<PR>(numpy_data, n, dims);
+    this->points = std::make_shared<PR>(numpy_data, n, dims);
 
     py::buffer_info filter_values_buf = filter_values.request();
     if (filter_values_buf.ndim != 1) {

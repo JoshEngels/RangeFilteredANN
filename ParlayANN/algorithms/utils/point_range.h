@@ -22,18 +22,12 @@
 
 #pragma once
 
-#include <algorithm>
+#include <memory>
 #include <iostream>
+#include <fstream>
 
 #include "parlay/parallel.h"
 #include "parlay/primitives.h"
-#include "parlay/internal/file_map.h"
-#include "../bench/parse_command_line.h"
-#include "NSGDist.h"
-
-#include "../bench/parse_command_line.h"
-#include "types.h"
-// #include "common/time_loop.h"
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -53,7 +47,7 @@ template<typename T, class Point, class PR>
 struct SubsetPointRange;
 
 template<typename T, class Point>
-struct PointRange{
+struct PointRange : public std::enable_shared_from_this<PointRange<T, Point>>{
 
   long dimension() const {return dims;}
   long aligned_dimension() const {return aligned_dims;}
@@ -113,32 +107,19 @@ struct PointRange{
     });
   }
 
-  std::unique_ptr<SubsetPointRange<T, Point, PointRange<T, Point>>> make_subset(parlay::sequence<int32_t> subset) {
-      return std::make_unique<SubsetPointRange<T, Point, PointRange<T, Point>>>(this, subset);
+    ~PointRange(){
+      free(values);
     }
 
-  // PointRange(char* filename) {
-  //   if(filename == NULL) {
-  //     n = 0;
-  //     dims = 0;
-  //     return;
-  //   }
-  //   auto [fileptr, length] = mmapStringFromFile(filename);
-  //   int num_vectors = *((int*) fileptr);
-  //   int d = *((int*) (fileptr+4));
-  //   n = num_vectors;
-  //   dims = d;
-  //   aligned_dims = dims;
-  //   values = (T*)(fileptr+8);
-  //   std::cout << "Detected " << n
-	//       << " points with dimension " << dims << std::endl;
-  // }
+    std::unique_ptr<SubsetPointRange<T, Point, PointRange<T, Point>>> make_subset(parlay::sequence<int32_t> subset) {
+        return std::make_unique<SubsetPointRange<T, Point, PointRange<T, Point>>>(std::enable_shared_from_this<PointRange<T, Point>>::shared_from_this(), subset); // Use std::enable_shared_from_this to access shared_from_this
+    }
 
-  size_t size() const { return n; }
-  
-  Point operator [] (long i) {
-    return Point(values+i*aligned_dims, dims, aligned_dims, i);
-  }
+    size_t size() const { return n; }
+    
+    Point operator [] (long i) {
+      return Point(values+i*aligned_dims, dims, aligned_dims, i);
+    }
 
 private:
   T* values;
@@ -153,7 +134,7 @@ private:
  */
 template<typename T, class Point, class PR = PointRange<T, Point>>
 struct SubsetPointRange {
-    PR *pr;
+    std::shared_ptr<PR> pr;
     parlay::sequence<int32_t> subset;
     std::unordered_map<int32_t, int32_t> real_to_subset;
     size_t n;
@@ -166,19 +147,7 @@ struct SubsetPointRange {
 
     SubsetPointRange() {}
 
-    SubsetPointRange(PR &pr, parlay::sequence<int32_t> subset) : pr(&pr), subset(subset) {
-      n = subset.size();
-      dims = pr.dimension();
-      aligned_dims = pr.aligned_dimension();
-
-      real_to_subset = std::unordered_map<int32_t, int32_t>();
-      real_to_subset.reserve(n);
-      for(int32_t i=0; i<n; i++) {
-        real_to_subset[subset[i]] = i;
-      }
-    }
-
-    SubsetPointRange(PR *pr, parlay::sequence<int32_t> subset) : pr(pr), subset(subset) {
+    SubsetPointRange(std::shared_ptr<PR> pr, parlay::sequence<int32_t> subset) : pr(pr), subset(subset) {
       n = subset.size();
       dims = pr->dimension();
       aligned_dims = pr->aligned_dimension();
@@ -192,8 +161,7 @@ struct SubsetPointRange {
 
     /* constructor from a twisted parallel dimension where inheritance doesn't exist */
     SubsetPointRange(T* values, size_t n, unsigned int dims){
-      heap_point_range = std::make_unique<PointRange<T, Point>>(values, n, dims);
-      pr = heap_point_range.get();
+      pr = std::make_shared<PointRange<T, Point>>(values, n, dims);
       subset = parlay::tabulate(n, [&] (int32_t i) {return i;});
       this->n = n;
       this->dims = dims;

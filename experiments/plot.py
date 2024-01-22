@@ -44,8 +44,8 @@ cmap_colors = {}
 filter_out_map = {
     "sift-128-euclidean": [-16, -15, -14, -13, -12], 
     "glove-100-angular": [-16, -15, -14, -13, -12],
-    "deep-image-96-angular": [-1, -3, -5, -7, -9, -11, -13, -15],
-    "redcaps-512-angular": [-1, -3, -5, -7, -9, -11, -13, -15]}
+    "deep-image-96-angular": [-1, -3, -5, -7, -9, -11, -13, -15, -16],
+    "redcaps-512-angular": [-1, -3, -5, -7, -9, -11, -13, -15, -16]}
 
 def plot(dataset_name):
     global next_unused_cmap_index

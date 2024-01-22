@@ -54,8 +54,8 @@ struct RangeFilterTreeIndex {
         sort_python_and_convert<FilterType, T, Point>(points, filter_values);
 
     *this = RangeFilterTreeIndex<T, Point, RangeSpatialIndex, FilterType>(
-        std::make_unique<PR>(sorted_point_range), sorted_filter_values,
-        decoding, cutoff, split_factor, build_params);
+        sorted_point_range, sorted_filter_values, decoding, cutoff,
+        split_factor, build_params);
   }
 
   /* the bounds here are inclusive */
@@ -108,7 +108,7 @@ private:
 
   int32_t _cutoff;
 
-  std::unique_ptr<PR> _points;
+  std::shared_ptr<PR> _points;
 
   size_t _split_factor;
 
@@ -126,7 +126,7 @@ private:
         std::move(subset_points), subset_of_filter_values, build_params);
   }
 
-  RangeFilterTreeIndex(std::unique_ptr<PR> points,
+  RangeFilterTreeIndex(std::shared_ptr<PR> points,
                        const FilterList &filter_values,
                        const parlay::sequence<size_t> &decoding, int32_t cutoff,
                        size_t split_factor, BuildParams build_params)

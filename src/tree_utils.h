@@ -91,8 +91,8 @@ auto sort_python_and_convert(py::array_t<T> points,
         filter_values_seq.at(filter_indices_sorted.at(i));
   });
 
-  PointRange<T, Point> point_range =
-      PointRange<T, Point>(data_sorted.data(), n, dimension);
+  std::shared_ptr<PointRange<T, Point>> point_range =
+      std::make_shared<PointRange<T, Point>>(data_sorted.data(), n, dimension);
 
   return std::make_tuple(point_range, filter_values_sorted, decoding);
 }
