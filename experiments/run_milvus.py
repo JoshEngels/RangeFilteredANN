@@ -22,7 +22,6 @@ print(
     "If you want to change the number of process used, OMP_NUM_THREADS in docker-compose.yml should also be changed."
 )
 # Ensure index_cache/postfiler_vamana exists
-os.makedirs("index_cache/postfilter_vamana", exist_ok=True)
 os.makedirs("results", exist_ok=True)
 
 TOP_K = 10
