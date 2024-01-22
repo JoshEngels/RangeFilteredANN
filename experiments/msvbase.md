@@ -18,8 +18,19 @@ sudo docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t vbase_ope
 
 # start MSVBASE docker container
 sudo ./scripts/dockerrun.sh
+
+# test if success
+python3 tests/test_msvbase_connection.py 
 ```
 
+
+
+
+
+
+
+
+## Other commands
 Convert datasets to tsv format, and copy to docker container.
 ```bash
 python3 generate_datasets/convert_to_msvbase.py 
