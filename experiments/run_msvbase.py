@@ -7,6 +7,7 @@ from multiprocessing import Pool, Manager
 
 import numpy as np
 from tqdm import tqdm
+import psycopg2
 
 THREADS = 16  # Adjust this to the desired number of parallel processes
 print("THREADS", THREADS)
@@ -18,20 +19,18 @@ os.makedirs("results", exist_ok=True)
 
 TOP_K = 10
 # Only use a subset of data and query for testing
-DATA_SUBSET = None
-QUERY_SUBSET = None
+# TODO: change to None
+DATA_SUBSET = 100
+QUERY_SUBSET = 100
 DATASETS = [
     "glove-100-angular",
-    "deep-image-96-angular",
-    "sift-128-euclidean",
-    "redcaps-512-angular",
+    # "deep-image-96-angular",
+    # "sift-128-euclidean",
+    # "redcaps-512-angular",
 ]
 EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(17)]
 # used for ef for HNSW query param
 BEAM_SIZES = [10, 20, 40, 80, 160, 320]
-INDEX_TYPES = [
-    "HNSW"
-]  # "DISKANN", "IVF_PQ", "IVF_SQ8", "HNSW", "SCANN", "IVF_FLAT", "FLAT"
 
 dataset_folder = "/data/parap/storage/jae/new_filtered_ann_datasets"
 
@@ -45,16 +44,26 @@ def compute_recall(gt_neighbors, results, top_k):
     return recall / len(gt_neighbors)  # average recall per query
 
 
-def get_index_params(index_type, n, metric):
-    return {}
+# Set the connection parameters
+db_params = {
+    "dbname": "vectordb",
+    "user": "vectordb",
+    "password": "vectordb",
+    "host": "172.17.0.2",  # Use the host machine's IP address
+    "port": "5432",  # The default PostgreSQL port
+}
 
-
-def get_query_params(index_type, n):
-    return {}
-
-# # TODO: connect to milvus
+# Establish the database connection
+conn = psycopg2.connect(**db_params)
 print("Connected to MSVBASE.")
-# TODO: remove all existing data
+# Create a cursor
+cursor = conn.cursor()
+
+# remove all existing data
+drop_all_tables(cursor)
+cursor.execute("SET max_parallel_workers = %s;" % THREADS)
+cursor.execute("SET max_parallel_workers_per_gather = %s;" % THREADS)
+cursor.execute("CREATE EXTENSION vectordb")
 
 
 for dataset_name in DATASETS:
@@ -86,65 +95,94 @@ for dataset_name in DATASETS:
         filter_values = filter_values[:DATA_SUBSET]
     print("filter.shape, ", filter_values.shape)
 
-    metric = "IP" if "angular" in dataset_name else "L2"
+    # When calculating distances, the '<->' operator represents the L2 distance, while '<*>' represents the inner product distance.
+    metric = "<*>" if "angular" in dataset_name else "<->"
 
+    # data must be in list, not numpy array
+    data = data.to_list()
+    # filter_values = filter_values.to_list()
+    ids = list(range(len(data)))
 
-    # TODO: 
+    values_to_insert = [
+        (id_value, filter_value, vector_value)
+        for id_value, filter_value, vector_value in zip(ids, filter_values, data)
+    ]
+
     print("Inserting points to database.")
-    
-    print("insert_result:\n", insert_result)
+    table_name = dataset_name
+    cursor.execute(f"create table {table_name}(id int, filter REAL, vector_1 REAL[3]);")
+    insert_query = (
+        f"INSERT INTO {table_name}(id, filter, vector_1) VALUES (%s, %s, %s);"
+    )
+    cursor.executemany(insert_query, values_to_insert)
 
     # use different indices
-    for index in INDEX_TYPES:
-        print("Building index: ", index)
-        index_params = get_index_params(index, num_entities, metric)
-        search_params_list = get_query_params(index, num_entities)
-        print("index_params: ", index_params)
-        formatted_index_params = "_".join(
-            [f"{key}_{value}" for key, value in index_params["params"].items()]
+    print("Building index: ", index)
+    index_params = get_index_params(index, num_entities, metric)
+    search_params_list = get_query_params(index, num_entities)
+    print("index_params: ", index_params)
+    formatted_index_params = "_".join(
+        [f"{key}_{value}" for key, value in index_params["params"].items()]
+    )
+
+    start_time = time.time()
+    points.create_index("embeddings", index_params)
+    points.load()
+    end_time = time.time()
+    print("build index latency = {:.4f}s".format(end_time - start_time))
+    utility.index_building_progress("points")
+
+    for filter_width in EXPERIMENT_FILTER_WIDTHS:
+        print("==filter width: 2pow", filter_width)
+        run_results = []
+        query_filter_ranges = np.load(
+            os.path.join(
+                dataset_folder,
+                f"{dataset_name}_queries_2pow{filter_width}_ranges.npy",
+            )
         )
+        query_gt = np.load(
+            os.path.join(
+                dataset_folder, f"{dataset_name}_queries_2pow{filter_width}_gt.npy"
+            )
+        )
+        if QUERY_SUBSET is not None:
+            query_filter_ranges = query_filter_ranges[:QUERY_SUBSET]
+            query_gt = query_gt[:QUERY_SUBSET]
+        print("==query_filter_ranges.shape", query_filter_ranges.shape)
+        print("==query_gt.shape", query_gt.shape)
 
         start_time = time.time()
-        points.create_index("embeddings", index_params)
-        points.load()
+        search_results = []
+        for query_id in range(len(queries)):
+            filter_start = query_filter_ranges[query_id][0]
+            filter_end = query_filter_ranges[query_id][1]
+            query_str = f"{{{','.join(map(str,  queries[ith_point]))}}}"
+            cursor.execute(
+                "select * from %s where filter > %s and filter < %s order by vector_1 %s '%s' limit %s;"
+                % (table_name, filter_start, filter_end, metric, query_str, TOP_K)
+            )
+            rows = cursor.fetchall()
+            result = []
+            for row in rows:
+                result.append(row[0])
+            search_restuls.append(result)
         end_time = time.time()
-        print("build index latency = {:.4f}s".format(end_time - start_time))
-        utility.index_building_progress("points")
 
-        for filter_width in EXPERIMENT_FILTER_WIDTHS:
-            print("==filter width: 2pow", filter_width)
-            run_results = []
-            query_filter_ranges = np.load(
-                os.path.join(
-                    dataset_folder,
-                    f"{dataset_name}_queries_2pow{filter_width}_ranges.npy",
-                )
-            )
-            query_gt = np.load(
-                os.path.join(
-                    dataset_folder, f"{dataset_name}_queries_2pow{filter_width}_gt.npy"
-                )
-            )
-            if QUERY_SUBSET is not None:
-                query_filter_ranges = query_filter_ranges[:QUERY_SUBSET]
-                query_gt = query_gt[:QUERY_SUBSET]
-            print("==query_filter_ranges.shape", query_filter_ranges.shape)
-            print("==query_gt.shape", query_gt.shape)
-
-            for search_params in search_params_list:
-                print("=search_params: ", search_params)
-                formatted_search_params = "_".join(
-                    [f"{key}_{value}" for key, value in search_params.items()]
-                )
-                ## TODO: search
+        total_time = end_time - start_time
+        average_recall = compute_recall(query_gt, search_results, TOP_K)
+        print("=average recall = {:.4f}".format(average_recall))
+        print("=search latency = {:.4f}s".format(total_time))
 
         with open(output_file, "a") as f:
             for name, recall, total_time in run_results:
                 f.write(
                     f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{THREADS}\n"
                 )
-        # TODO: delete index
+    cursor.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE;")
 
 
-    # TODO: remove points from database
-
+# remove points from database
+drop_all_tables(cursor)
+cursor.close()
+conn.close()
