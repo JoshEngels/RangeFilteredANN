@@ -29,8 +29,6 @@ DATASETS = [
     # "redcaps-512-angular",
 ]
 EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(17)]
-# used for ef for HNSW query param
-BEAM_SIZES = [10, 20, 40, 80, 160, 320]
 
 dataset_folder = "/data/parap/storage/jae/new_filtered_ann_datasets"
 
