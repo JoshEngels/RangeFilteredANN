@@ -19,7 +19,7 @@ from tqdm import tqdm
 THREADS = 16  # Adjust this to the desired number of parallel processes
 print("THREADS", THREADS)
 print(
-    "If you want to change the number of process used, OMP_NUM_THREADS in docker-compose.yml should also be changed."
+    "If you want to change the number of process used, OMP_NUM_THREADS and limits:cpus in docker-compose.yml should also both be changed."
 )
 # Ensure index_cache/postfiler_vamana exists
 os.makedirs("results", exist_ok=True)
@@ -33,13 +33,16 @@ DATASETS = [
     "deep-image-96-angular",
     "sift-128-euclidean",
     "redcaps-512-angular",
+    "adversarial-100-angular"
 ]
-EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(17)]
+EXPERIMENT_FILTER_WIDTHS = [f"2pow{i}" for i in range(-16, 1)]
 # used for ef for HNSW query param
 BEAM_SIZES = [10, 20, 40, 80, 160, 320]
+NPROBES = [1, 2, 4, 8, 16, 32, 64, 128]
+REORDER_KS = [TOP_K * i for i in [1, 2, 4, 8, 16]]
 INDEX_TYPES = [
-    "HNSW"
-]  # "DISKANN", "IVF_PQ", "IVF_SQ8", "HNSW", "SCANN", "IVF_FLAT", "FLAT"
+    "HNSW", "DISKANN", "IVF_PQ", "IVF_SQ8", "SCANN", "IVF_FLAT"
+]  
 
 dataset_folder = "/data/parap/storage/jae/new_filtered_ann_datasets"
 
@@ -53,21 +56,19 @@ def compute_recall(gt_neighbors, results, top_k):
     return recall / len(gt_neighbors)  # average recall per query
 
 
-def get_index_params(index_type, n, metric):
+def get_index_params(index_type, n, metric, dim):
+    m = 10 if dim == 100 else 8  #  Because we need dim mod m == 0
+    assert(dim % m == 0)
     params = {
-        "FLAT": {},
         "IVF_FLAT": {"nlist": int(sqrt(n))},
         "IVF_SQ8": {"nlist": int(sqrt(n))},
-        "IVF_PQ": {"nlist": int(sqrt(n)), "m": 10},  #  dim mod m == 0
+        "IVF_PQ": {"nlist": int(sqrt(n)), "m": m}, 
         "SCANN": {"nlist": int(sqrt(n))},
         "HNSW": {"M": 64, "efConstruction": 500},
-        # [{"M": i, "efConstruction": j} for i,j in itertools.product([64], [500])],
-        "DISKANN": {},
     }
     if index_type not in params:
-        raise Exception("Invalid index type")
+        raise Exception(f"Invalid index type {index_type}")
 
-    # print(fmt.format("Start Creating index IVF_FLAT"))
     index = {
         "index_type": index_type,
         "metric_type": metric,
@@ -78,14 +79,13 @@ def get_index_params(index_type, n, metric):
 
 def get_query_params(index_type, n):
     params = {
-        "FLAT": {},
-        "IVF_FLAT": {"nprobe": int(sqrt(n))},
-        "IVF_SQ8": {"nprobe": int(sqrt(n))},
-        "IVF_PQ": {"nprobe": int(sqrt(n))},
-        "SCANN": {
-            "nprobe": int(sqrt(n)),
-            "reorder_k": TOP_K,
-        },
+        "IVF_FLAT": [{"nprobe": i} for i in NPROBES],
+        "IVF_SQ8": [{"nprobe": i} for i in NPROBES],
+        "IVF_PQ": [{"nprobe": i} for i in NPROBES],
+        "SCANN": [{
+            "nprobe": i,
+            "reorder_k": j,
+        } for i, j in itertools.product(NPROBES, REORDER_KS)],
         "HNSW": [{"ef": i} for i in BEAM_SIZES],
         "DISKANN": [{"search_list": i} for i in BEAM_SIZES],
     }
@@ -97,12 +97,15 @@ def get_query_params(index_type, n):
 # connect to milvus
 connections.connect("default", host="localhost", port="19530")
 print("Connected to Milvus.")
+
 # remove all existing data
 collections = utility.list_collections()
 for collection in collections:
     utility.drop_collection(collection)
 
 for dataset_name in DATASETS:
+    dim = int(dataset_name.split("-")[1])
+
     output_file = f"results/{dataset_name}_milvus_results.csv"
 
     # only write header if file doesn't exist
@@ -159,8 +162,8 @@ for dataset_name in DATASETS:
 
     # use different indices
     for index in INDEX_TYPES:
-        print("Building index: ", index)
-        index_params = get_index_params(index, num_entities, metric)
+        print("Building index: ", index, flush=True)
+        index_params = get_index_params(index, num_entities, metric, dim)
         search_params_list = get_query_params(index, num_entities)
         print("index_params: ", index_params)
         formatted_index_params = "_".join(
@@ -171,21 +174,25 @@ for dataset_name in DATASETS:
         points.create_index("embeddings", index_params)
         points.load()
         end_time = time.time()
-        print("build index latency = {:.4f}s".format(end_time - start_time))
+        print("build index time = {:.4f}s".format(end_time - start_time), flush=True)
         utility.index_building_progress("points")
 
-        for filter_width in EXPERIMENT_FILTER_WIDTHS:
+        dataset_experiment_filter_widths = (
+            [""] if dataset_name == "adversarial-100-angular" else EXPERIMENT_FILTER_WIDTHS
+        )
+        for filter_width in dataset_experiment_filter_widths:
+            filter_width = "_" if filter_width == "" else f"_{filter_width}_"
             print("==filter width: 2pow", filter_width)
             run_results = []
             query_filter_ranges = np.load(
                 os.path.join(
                     dataset_folder,
-                    f"{dataset_name}_queries_2pow{filter_width}_ranges.npy",
+                    f"{dataset_name}_queries{filter_width}ranges.npy",
                 )
             )
             query_gt = np.load(
                 os.path.join(
-                    dataset_folder, f"{dataset_name}_queries_2pow{filter_width}_gt.npy"
+                    dataset_folder, f"{dataset_name}_queries{filter_width}gt.npy"
                 )
             )
             if QUERY_SUBSET is not None:
@@ -240,7 +247,7 @@ for dataset_name in DATASETS:
 
                 start_time = time.time()
                 # Create a Pool of worker processes
-                with Pool(THREADS) as pool:
+                with Pool(1000) as pool:
                     # Use tqdm to track progress
                     for time_taken in tqdm(
                         pool.imap_unordered(
