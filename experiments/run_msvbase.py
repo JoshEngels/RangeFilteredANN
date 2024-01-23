@@ -11,9 +11,6 @@ import psycopg2
 
 THREADS = 16  # Adjust this to the desired number of parallel processes
 print("THREADS", THREADS)
-print(
-    "If you want to change the number of process used, OMP_NUM_THREADS in docker-compose.yml should also be changed."
-)
 # Ensure index_cache/postfiler_vamana exists
 os.makedirs("results", exist_ok=True)
 
@@ -24,11 +21,11 @@ DATA_SUBSET = 100
 QUERY_SUBSET = 100
 DATASETS = [
     "glove-100-angular",
-    # "deep-image-96-angular",
+    "deep-image-96-angular",
     # "sift-128-euclidean",
     # "redcaps-512-angular",
 ]
-EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(17)]
+EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(2)] # TODO: change back to 17
 
 dataset_folder = "/data/parap/storage/jae/new_filtered_ann_datasets"
 
@@ -41,6 +38,22 @@ def compute_recall(gt_neighbors, results, top_k):
         recall += len(gt.intersection(res)) / len(gt)
     return recall / len(gt_neighbors)  # average recall per query
 
+def drop_all_tables(cursor):
+    # Get a list of all table names in the database
+    cursor.execute(
+        "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public';"
+    )
+    table_names = cursor.fetchall()
+
+    # Generate and execute DROP TABLE statements for each table
+    for table_name in table_names:
+        table_name = table_name[0]  # Extract the table name from the result tuple
+        drop_table_query = f"DROP TABLE IF EXISTS {table_name} CASCADE;"
+        cursor.execute(drop_table_query)
+        print(f"Dropped table: {table_name}")
+
+    # Commit the transaction
+    conn.commit()
 
 # Set the connection parameters
 db_params = {
@@ -71,8 +84,8 @@ for dataset_name in DATASETS:
     if not os.path.exists(output_file):
         with open(output_file, "a") as f:
             f.write("filter_width,method,recall,average_time,qps,threads\n")
-
-    print("Loading data.")
+    print()
+    print("Loading data, ", dataset_name)
     data = np.load(os.path.join(dataset_folder, f"{dataset_name}.npy"))
     if DATA_SUBSET is not None:
         data = data[:DATA_SUBSET]
@@ -97,8 +110,8 @@ for dataset_name in DATASETS:
     metric = "<*>" if "angular" in dataset_name else "<->"
 
     # data must be in list, not numpy array
-    data = data.to_list()
-    # filter_values = filter_values.to_list()
+    data = data.tolist()
+    # filter_values = filter_values.tolist()
     ids = list(range(len(data)))
 
     values_to_insert = [
@@ -107,28 +120,15 @@ for dataset_name in DATASETS:
     ]
 
     print("Inserting points to database.")
-    table_name = dataset_name
+    table_name = dataset_name.replace("-", "_")
     cursor.execute(f"create table {table_name}(id int, filter REAL, vector_1 REAL[3]);")
     insert_query = (
         f"INSERT INTO {table_name}(id, filter, vector_1) VALUES (%s, %s, %s);"
     )
-    cursor.executemany(insert_query, values_to_insert)
-
-    # use different indices
-    print("Building index: ", index)
-    index_params = get_index_params(index, num_entities, metric)
-    search_params_list = get_query_params(index, num_entities)
-    print("index_params: ", index_params)
-    formatted_index_params = "_".join(
-        [f"{key}_{value}" for key, value in index_params["params"].items()]
-    )
-
     start_time = time.time()
-    points.create_index("embeddings", index_params)
-    points.load()
+    cursor.executemany(insert_query, values_to_insert)
     end_time = time.time()
     print("build index latency = {:.4f}s".format(end_time - start_time))
-    utility.index_building_progress("points")
 
     for filter_width in EXPERIMENT_FILTER_WIDTHS:
         print("==filter width: 2pow", filter_width)
@@ -156,7 +156,7 @@ for dataset_name in DATASETS:
         for query_id in range(len(queries)):
             filter_start = query_filter_ranges[query_id][0]
             filter_end = query_filter_ranges[query_id][1]
-            query_str = f"{{{','.join(map(str,  queries[ith_point]))}}}"
+            query_str = f"{{{','.join(map(str,  queries[query_id]))}}}"
             cursor.execute(
                 "select * from %s where filter > %s and filter < %s order by vector_1 %s '%s' limit %s;"
                 % (table_name, filter_start, filter_end, metric, query_str, TOP_K)
@@ -165,7 +165,7 @@ for dataset_name in DATASETS:
             result = []
             for row in rows:
                 result.append(row[0])
-            search_restuls.append(result)
+            search_results.append(result)
         end_time = time.time()
 
         total_time = end_time - start_time
@@ -182,6 +182,7 @@ for dataset_name in DATASETS:
 
 
 # remove points from database
+cursor.execute("DROP EXTENSION vectordb")
 drop_all_tables(cursor)
 cursor.close()
 conn.close()
