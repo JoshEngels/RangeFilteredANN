@@ -87,7 +87,7 @@ def get_query_params(index_type, n):
             "reorder_k": TOP_K,
         },
         "HNSW": [{"ef": i} for i in BEAM_SIZES],
-        "DISKANN": {"search_list": 50},
+        "DISKANN": [{"search_list": i} for i in BEAM_SIZES],
     }
     if index_type not in params:
         raise Exception("Invalid index type")
