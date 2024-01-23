@@ -12,6 +12,7 @@ DATASETS = [
     "glove-100-angular",
     "deep-image-96-angular",
     "redcaps-512-angular",
+    "adversarial-100-angular",
 ]
 
 
@@ -220,13 +221,12 @@ def initialize_dataset(dataset_name):
 
 
 def get_queries_and_gt(dataset_name, filter_width):
+    filter_width = "_" if filter_width == "" else f"_{filter_width}_"
     query_filter_ranges = np.load(
-        os.path.join(
-            DATASET_FOLDER, f"{dataset_name}_queries_{filter_width}_ranges.npy"
-        )
+        os.path.join(DATASET_FOLDER, f"{dataset_name}_queries{filter_width}ranges.npy")
     )
     query_gt = np.load(
-        os.path.join(DATASET_FOLDER, f"{dataset_name}_queries_{filter_width}_gt.npy")
+        os.path.join(DATASET_FOLDER, f"{dataset_name}_queries{filter_width}gt.npy")
     )
 
     return query_filter_ranges, query_gt
@@ -520,7 +520,10 @@ def save_results(all_results, dataset_name):
 
 
 for dataset_name in DATASETS:
-    for experiment_filter_width in EXPERIMENT_FILTER_WIDTHS:
+    dataset_experiment_filter_widths = (
+        [""] if dataset_name == "adversarial-100-angular" else EXPERIMENT_FILTER_WIDTHS
+    )
+    for experiment_filter_width in dataset_experiment_filter_widths:
         all_results = []
         if run_prefiltering:
             run_prefiltering_experiment(

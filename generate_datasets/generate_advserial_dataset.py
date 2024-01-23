@@ -66,7 +66,7 @@ queries /= np.linalg.norm(queries, axis=1, keepdims=True)
 gts = []
 
 
-for query_index, q in tqdm(enumerate(queries)):
+for query_index, query in tqdm(enumerate(queries)):
     dot_products = query @ data.T
     sorted_indices = np.argsort(dot_products)[::-1]
     query_filter = query_filters[query_index]
