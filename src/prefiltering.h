@@ -1,5 +1,6 @@
 #pragma once
 
+#include "algorithms/utils/types.h"
 #include "parlay/parallel.h"
 #include "parlay/primitives.h"
 #include "parlay/sequence.h"
@@ -26,7 +27,7 @@ using pid = std::pair<index_type, float>;
  * prefiltering should probably be a fenwick tree */
 template <typename T, class Point, class PR = SubsetPointRange<T, Point>>
 struct PrefilterIndex {
-  std::unique_ptr<PR> points;
+  std::shared_ptr<PR> points;
   parlay::sequence<index_type>
       indices; // the indices of the points in the original dataset
   parlay::sequence<FilterType> filter_values;
@@ -36,9 +37,15 @@ struct PrefilterIndex {
 
   std::pair<FilterType, FilterType> range;
 
-  PrefilterIndex(std::unique_ptr<PR> &&points,
-                 parlay::sequence<FilterType> filter_values)
+  // BuildParams is unused for now but kept for API consistency
+  PrefilterIndex(std::shared_ptr<PR> &&points,
+                 parlay::sequence<FilterType> filter_values,
+                 BuildParams build_params)
       : points(std::move(points)), filter_values(std::move(filter_values)) {
+
+    // These are unused, but kept for API consistency
+    (void)build_params;
+
     auto n = this->points->size();
 
     if constexpr (std::is_same<PR, PointRange<T, Point>>()) {
@@ -65,7 +72,9 @@ struct PrefilterIndex {
         std::make_pair(filter_values_sorted[0], filter_values_sorted[n - 1]);
   }
 
-  PrefilterIndex(py::array_t<T> points, py::array_t<FilterType> filter_values) {
+  // BuildParams is unused for now but kept for API consistency
+  PrefilterIndex(py::array_t<T> points, py::array_t<FilterType> filter_values,
+                 BuildParams build_params) {
     py::buffer_info points_buf = points.request();
     if (points_buf.ndim != 2) {
       throw std::runtime_error("points numpy array must be 2-dimensional");
@@ -76,7 +85,7 @@ struct PrefilterIndex {
     // avoiding this copy may have dire consequences from gc
     T *numpy_data = static_cast<T *>(points_buf.ptr);
 
-    this->points = std::make_unique<PR>(numpy_data, n, dims);
+    this->points = std::make_shared<PR>(numpy_data, n, dims);
 
     py::buffer_info filter_values_buf = filter_values.request();
     if (filter_values_buf.ndim != 1) {
@@ -115,7 +124,8 @@ struct PrefilterIndex {
   NeighborsAndDistances batch_search(
       py::array_t<T, py::array::c_style | py::array::forcecast> &queries,
       const std::vector<std::pair<FilterType, FilterType>> &filters,
-      uint64_t num_queries, uint64_t knn) {
+      uint64_t num_queries, QueryParams query_params) {
+    size_t knn = query_params.k;
     py::array_t<unsigned int> ids({num_queries, knn});
     py::array_t<float> dists({num_queries, knn});
 
@@ -124,49 +134,7 @@ struct PrefilterIndex {
                       this->points->aligned_dimension(), i);
       std::pair<FilterType, FilterType> filter = filters[i];
 
-      // hopefully I can trust these results
-      size_t start;
-
-      size_t l, r, mid;
-      l = 0;
-      r = filter_values_sorted.size() - 1;
-      while (l < r) {
-        mid = (l + r) / 2;
-        if (filter_values_sorted[mid] < filter.first) {
-          l = mid + 1;
-        } else {
-          r = mid;
-        }
-      }
-      start = l;
-
-      size_t end;
-
-      l = 0;
-      r = filter_values_sorted.size() - 1;
-      while (l < r) {
-        mid = (l + r) / 2;
-        if (filter_values_sorted[mid] < filter.second) {
-          l = mid + 1;
-        } else {
-          r = mid;
-        }
-      }
-      end = l;
-
-      auto frontier = parlay::sequence<std::pair<index_type, float>>(
-          knn, std::make_pair(-1, std::numeric_limits<float>::max()));
-
-      for (auto j = start; j < end; j++) {
-        index_type index = filter_indices_sorted[j];
-        Point p = (*points)[index];
-        float dist = q.distance(p);
-        if (dist < frontier[knn - 1].second) {
-          frontier[knn - 1] = std::make_pair(indices[index], dist);
-          parlay::sort_inplace(
-              frontier, [&](auto a, auto b) { return a.second < b.second; });
-        }
-      }
+      auto frontier = query(q, filter, query_params);
 
       for (auto j = 0; j < knn; j++) {
         ids.mutable_at(i, j) = frontier[j].first;
@@ -178,8 +146,8 @@ struct PrefilterIndex {
   }
 
   parlay::sequence<pid> query(Point q, std::pair<FilterType, FilterType> filter,
-                              QueryParams qp) {
-    return query_knn(q, filter, qp.k);
+                              QueryParams query_params) {
+    return query_knn(q, filter, query_params.k);
   }
 
   /* processes a single query */
@@ -216,17 +184,20 @@ struct PrefilterIndex {
     end = l;
 
     auto frontier = parlay::sequence<std::pair<index_type, float>>(
-        knn, std::make_pair(-1, std::numeric_limits<float>::max()));
+        end - start, std::make_pair(-1, std::numeric_limits<float>::max()));
 
     for (auto j = start; j < end; j++) {
       index_type index = filter_indices_sorted[j];
       Point p = (*points)[index];
       float dist = q.distance(p);
-      if (dist < frontier[knn - 1].second) {
-        frontier[knn - 1] = std::make_pair(indices[index], dist);
-        parlay::sort_inplace(
-            frontier, [&](auto a, auto b) { return a.second < b.second; });
-      }
+      frontier.at(j - start) = {indices[index], dist};
+    }
+
+    parlay::sort_inplace(frontier,
+                         [&](auto a, auto b) { return a.second < b.second; });
+
+    if (frontier.size() > knn) {
+      frontier.pop_tail(frontier.size() - knn);
     }
 
     return frontier;

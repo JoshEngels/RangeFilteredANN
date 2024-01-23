@@ -75,21 +75,25 @@ struct groundTruth{
 
 
 struct BuildParams{
-  long L; //vamana
-  long R; //vamana and pynnDescent
-  double alpha; //vamana and pyNNDescent
+  long L = 0; //vamana
+  long R = 0; //vamana and pynnDescent
+  double alpha = 0; //vamana and pyNNDescent
 
-  long num_clusters; // HCNNG and pyNNDescent
-  long cluster_size; //HCNNG and pyNNDescent
-  long MST_deg; //HCNNG
+  long num_clusters = 0; // HCNNG and pyNNDescent
+  long cluster_size = 0; //HCNNG and pyNNDescent
+  long MST_deg = 0; //HCNNG
 
-  double delta; //pyNNDescent
+  double delta = 0; //pyNNDescent
 
   std::string alg_type;
+
+  std::string cache_path;
 
   BuildParams() {}
 
   BuildParams(long R, long L, double a) : R(R), L(L), alpha(a) {}
+
+  BuildParams(long R, long L, double a, std::string cache_path) : R(R), L(L), alpha(a), cache_path(cache_path) {}
 
   BuildParams(long R, long L, double a, long nc, long cs, long mst, double de) : R(R), L(L), alpha(a), num_clusters(nc), cluster_size(cs), MST_deg(mst), delta(de) {
     if(R != 0 && L != 0 && alpha != 0){alg_type = "Vamana";}
@@ -116,11 +120,21 @@ struct QueryParams{
   long degree_limit;
   long final_beam_multiply = 8; // Only for postfiltering
   long postfiltering_max_beam = 10000; // Only for postfiltering
+  std::optional<float> min_query_to_bucket_ratio = std::nullopt; // Only for postfiltering
+  bool verbose = false;
 
-  QueryParams(long k, long Q, double cut, long limit, long dg) : k(k), beamSize(Q), cut(cut), limit(limit), degree_limit(dg) {}
+  QueryParams(long k, long Q, double cut, long limit, long dg)
+      : k(k), beamSize(Q), cut(cut), limit(limit), degree_limit(dg) {}
 
-  QueryParams(long k, long Q, double cut, long limit, long dg, long final_beam_multiply, long postfiltering_max_beam) : k(k), beamSize(Q), cut(cut), limit(limit), degree_limit(dg), final_beam_multiply(final_beam_multiply), postfiltering_max_beam(postfiltering_max_beam) {}
-
+  QueryParams(long k, long Q, double cut, long limit, long dg,
+              long final_beam_multiply, long postfiltering_max_beam,
+              std::optional<float> min_query_to_bucket_ratio, bool verbose)
+      : k(k), beamSize(Q), cut(cut), limit(limit), degree_limit(dg),
+        final_beam_multiply(final_beam_multiply),
+        postfiltering_max_beam(postfiltering_max_beam),
+        min_query_to_bucket_ratio(min_query_to_bucket_ratio), verbose(verbose) {
+  }
+  
   QueryParams() {}
 
 };

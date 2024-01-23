@@ -302,5 +302,46 @@ def vamana_range_filter_tree_constructor(metric, dtype):
             raise Exception("Invalid data type " + dtype)
 
 
-def build_query_params(k, beam_size, cut=1.35, limit=10_000_000, beam_size_limit=10000, final_beam_multiply=8, postfiltering_max_beam=10000):
-    return QueryParams(k, beam_size, cut, limit, beam_size_limit, final_beam_multiply, postfiltering_max_beam)
+def super_optimized_postfilter_tree_constructor(metric, dtype):
+    if metric == "Euclidian":
+        if dtype == "uint8":
+            return SuperOptimizedPostfilterTreeIndexUint8Euclidian
+        elif dtype == "int8":
+            return SuperOptimizedPostfilterTreeIndexInt8Euclidian
+        elif dtype == "float":
+            return SuperOptimizedPostfilterTreeIndexFloatEuclidian
+        else:
+            raise Exception("Invalid data type " + dtype)
+    elif metric == "mips":
+        if dtype == "uint8":
+            return SuperOptimizedPostfilterTreeIndexUint8Mips
+        elif dtype == "int8":
+            return SuperOptimizedPostfilterTreeIndexInt8Mips
+        elif dtype == "float":
+            return SuperOptimizedPostfilterTreeIndexFloatMips
+        else:
+            raise Exception("Invalid data type " + dtype)
+
+
+def build_query_params(
+    k,
+    beam_size,
+    cut=1.35,
+    limit=10_000_000,
+    degree_limit=10_000,
+    final_beam_multiply=1,
+    postfiltering_max_beam=10000,
+    min_query_to_bucket_ratio=None,
+    verbose=False,
+):
+    return QueryParams(
+        k,
+        beam_size,
+        cut,
+        limit,
+        degree_limit,
+        final_beam_multiply,
+        postfiltering_max_beam,
+        min_query_to_bucket_ratio,
+        verbose,
+    )

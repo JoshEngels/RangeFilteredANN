@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 
-EXPERIMENT_FILTER_WIDTHS = [0.0001, 0.001, 0.01, 0.1, 0.2, 0.5, 1]
+EXPERIMENT_FILTER_POWERS = range(-16, 1)
 TOP_K = 10
 
 
@@ -77,7 +77,20 @@ def generate_filters(
     output_dir, is_angular, dataset_friendly_name, data, queries, filter_values
 ):
     all_filter_ranges = []
-    for filter_width in EXPERIMENT_FILTER_WIDTHS:
+    for filter_width_power in EXPERIMENT_FILTER_POWERS:
+        if (
+            output_dir
+            / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy"
+        ).exists():
+            all_filter_ranges.append(
+                np.load(
+                    output_dir
+                    / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy"
+                )
+            )
+            continue
+
+        filter_width = 2**filter_width_power
         filter_ranges = generate_random_query_filter_ranges(
             filter_values=filter_values,
             target_percentage=filter_width,
@@ -85,11 +98,12 @@ def generate_filters(
         )
         all_filter_ranges.append(filter_ranges)
         np.save(
-            output_dir / f"{dataset_friendly_name}_queries_{filter_width}_ranges.npy",
+            output_dir
+            / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy",
             filter_ranges,
         )
 
-    all_gts = [[] for _ in range(len(EXPERIMENT_FILTER_WIDTHS))]
+    all_gts = [[] for _ in range(len(EXPERIMENT_FILTER_POWERS))]
     for query_index, query in tqdm(enumerate(queries)):
         if is_angular:
             dot_products = query @ data.T
@@ -98,7 +112,7 @@ def generate_filters(
             distances = np.linalg.norm(query - data, axis=-1)
             sorted_indices = np.argsort(distances)
 
-        for experiment_index in range(len(EXPERIMENT_FILTER_WIDTHS)):
+        for experiment_index in range(len(EXPERIMENT_FILTER_POWERS)):
             query_filter = all_filter_ranges[experiment_index][query_index]
             query_gt = []
             for data_index in sorted_indices:
@@ -114,10 +128,11 @@ def generate_filters(
 
             all_gts[experiment_index].append(query_gt)
 
-    for i in range(len(EXPERIMENT_FILTER_WIDTHS)):
+    for i in range(len(EXPERIMENT_FILTER_POWERS)):
         all_gts[i] = np.array(all_gts[i])
+        filter_width_power = EXPERIMENT_FILTER_POWERS[i]
         np.save(
             output_dir
-            / f"{dataset_friendly_name}_queries_{EXPERIMENT_FILTER_WIDTHS[i]}_gt.npy",
+            / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_gt.npy",
             all_gts[i],
         )

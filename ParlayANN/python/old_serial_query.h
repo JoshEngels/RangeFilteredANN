@@ -59,7 +59,7 @@ struct FlatRangeFilterIndex {
     using pid = std::pair<index_type, float>;
     
     // TODO: make points a unique_ptr to a PR. Currently stack allocating like a moron.
-    std::unique_ptr<PR> points;
+    std::shared_ptr<PR> points;
     
     parlay::sequence<index_type> indices; // indices of points wrt the original dataset, important for returning results
     parlay::sequence<FilterType> filter_values; // filter value for each point
@@ -80,7 +80,7 @@ struct FlatRangeFilterIndex {
     // FlatRangeFilterIndex();
 
     /* an interface to support std::move-ing unique ptrs to the point range directly */
-    FlatRangeFilterIndex(std::unique_ptr<PR> points, const parlay::sequence<FilterType>& filter_values, int32_t cutoff = 1000, bool recurse = true)
+    FlatRangeFilterIndex(std::shared_ptr<PR> points, const parlay::sequence<FilterType>& filter_values, int32_t cutoff = 1000, bool recurse = true)
         : points(std::move(points)), filter_values(filter_values), cutoff(cutoff) {
         auto n = this->points->size();
         if constexpr (std::is_same_v<PR, PointRange<T, Point>>) {
@@ -122,7 +122,7 @@ struct FlatRangeFilterIndex {
     /* This constructor should be used internally by the C++ layer 
     */
     FlatRangeFilterIndex(const PR& points, const parlay::sequence<FilterType>& filter_values, int32_t cutoff = 1000, bool recurse = true) {
-        auto unique_points = std::make_unique<PR>(points);
+        auto unique_points = std::make_shared<PR>(points);
         *this = FlatRangeFilterIndex<T, Point, PR, FilterType>(std::move(unique_points), filter_values, cutoff, recurse);
     }
 
