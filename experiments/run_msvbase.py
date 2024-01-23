@@ -16,16 +16,15 @@ os.makedirs("results", exist_ok=True)
 
 TOP_K = 10
 # Only use a subset of data and query for testing
-# TODO: change to None
-DATA_SUBSET = 100
-QUERY_SUBSET = 100
+DATA_SUBSET = None
+QUERY_SUBSET = None
 DATASETS = [
     "glove-100-angular",
     "deep-image-96-angular",
-    # "sift-128-euclidean",
-    # "redcaps-512-angular",
+    "sift-128-euclidean",
+    "redcaps-512-angular",
 ]
-EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(2)] # TODO: change back to 17
+EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(17)]
 
 dataset_folder = "/data/parap/storage/jae/new_filtered_ann_datasets"
 
@@ -152,7 +151,7 @@ for dataset_name in DATASETS:
 
         start_time = time.time()
         search_results = []
-        # TODO: change to multithreading
+        # cannot use multithreading due to psycopg2 synchronization.
         for query_id in range(len(queries)):
             filter_start = query_filter_ranges[query_id][0]
             filter_end = query_filter_ranges[query_id][1]
