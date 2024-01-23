@@ -20,27 +20,27 @@ def pareto_front(x, y):
     return pareto_front_x, pareto_front_y
 
 
-SMALL_SIZE = 14
-MEDIUM_SIZE = 22
-BIGGER_SIZE = 26
+if __name__ == "__main__":
+    SMALL_SIZE = 14
+    MEDIUM_SIZE = 22
+    BIGGER_SIZE = 26
 
-plt.rc("font", size=SMALL_SIZE)  # controls default text sizes
-plt.rc("axes", titlesize=MEDIUM_SIZE)  # fontsize of the axes title
-plt.rc(
-    "axes", labelsize=MEDIUM_SIZE
-)  # fontsize of the x and y labels for the small plots
-plt.rc("xtick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
-plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
-plt.rc("legend", fontsize=MEDIUM_SIZE)  # legend fontsize
-plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
-plt.rc(
-    "figure", labelsize=BIGGER_SIZE
-)  # fontsize of the x and y labels for the big plots
+    plt.rc("font", size=SMALL_SIZE)  # controls default text sizes
+    plt.rc("axes", titlesize=MEDIUM_SIZE)  # fontsize of the axes title
+    plt.rc(
+        "axes", labelsize=MEDIUM_SIZE
+    )  # fontsize of the x and y labels for the small plots
+    plt.rc("xtick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
+    plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
+    plt.rc("legend", fontsize=MEDIUM_SIZE)  # legend fontsize
+    plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
+    plt.rc(
+        "figure", labelsize=BIGGER_SIZE
+    )  # fontsize of the x and y labels for the big plots
 
 cmap = plt.get_cmap("tab10")
 next_unused_cmap_index = 0
 cmap_colors = {}
-
 
 filter_out_map = {
     "sift-128-euclidean": [-16, -15, -14, -13, -12],
@@ -106,10 +106,11 @@ def plot(dataset_name):
     plt.savefig(f"results/plots/{dataset_name}_results.pdf", bbox_inches="tight")
 
 
-if not os.path.exists("results/plots"):
-    os.makedirs("results/plots")
+if __name__ == "__main__":
+    if not os.path.exists("results/plots"):
+        os.makedirs("results/plots")
 
-plot("sift-128-euclidean")
-plot("glove-100-angular")
-plot("deep-image-96-angular")
-plot("redcaps-512-angular")
+    plot("sift-128-euclidean")
+    plot("glove-100-angular")
+    plot("deep-image-96-angular")
+    plot("redcaps-512-angular")

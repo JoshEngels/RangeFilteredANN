@@ -37,6 +37,7 @@ def compute_recall(gt_neighbors, results, top_k):
         recall += len(gt.intersection(res)) / len(gt)
     return recall / len(gt_neighbors)  # average recall per query
 
+
 def drop_all_tables(cursor):
     # Get a list of all table names in the database
     cursor.execute(
@@ -53,6 +54,7 @@ def drop_all_tables(cursor):
 
     # Commit the transaction
     conn.commit()
+
 
 # Set the connection parameters
 db_params = {
