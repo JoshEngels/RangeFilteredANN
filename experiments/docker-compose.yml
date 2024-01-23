@@ -12,7 +12,7 @@ services:
       MINIO_ADDRESS: minio:9000
       OMP_NUM_THREADS: 16
     volumes:
-      - /home/jae/milvus.yaml:/milvus/configs/milvus.yaml   # Map the local path to the container path
+      - /home/ubuntu/milvus.yaml:/milvus/configs/milvus.yaml   # Map the local path to the container path
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]

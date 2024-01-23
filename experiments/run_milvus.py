@@ -33,16 +33,14 @@ DATASETS = [
     "deep-image-96-angular",
     "sift-128-euclidean",
     "redcaps-512-angular",
-    "adversarial-100-angular"
+    "adversarial-100-angular",
 ]
 EXPERIMENT_FILTER_WIDTHS = [f"2pow{i}" for i in range(-16, 1)]
 # used for ef for HNSW query param
 BEAM_SIZES = [10, 20, 40, 80, 160, 320]
 NPROBES = [1, 2, 4, 8, 16, 32, 64, 128]
 REORDER_KS = [TOP_K * i for i in [1, 2, 4, 8, 16]]
-INDEX_TYPES = [
-    "HNSW", "DISKANN", "IVF_PQ", "IVF_SQ8", "SCANN", "IVF_FLAT"
-]  
+INDEX_TYPES = ["HNSW", "DISKANN", "IVF_PQ", "IVF_SQ8", "SCANN", "IVF_FLAT"]
 
 dataset_folder = "/data/parap/storage/jae/new_filtered_ann_datasets"
 
@@ -58,11 +56,11 @@ def compute_recall(gt_neighbors, results, top_k):
 
 def get_index_params(index_type, n, metric, dim):
     m = 10 if dim == 100 else 8  #  Because we need dim mod m == 0
-    assert(dim % m == 0)
+    assert dim % m == 0
     params = {
         "IVF_FLAT": {"nlist": int(sqrt(n))},
         "IVF_SQ8": {"nlist": int(sqrt(n))},
-        "IVF_PQ": {"nlist": int(sqrt(n)), "m": m}, 
+        "IVF_PQ": {"nlist": int(sqrt(n)), "m": m},
         "SCANN": {"nlist": int(sqrt(n))},
         "HNSW": {"M": 64, "efConstruction": 500},
     }
@@ -82,10 +80,13 @@ def get_query_params(index_type, n):
         "IVF_FLAT": [{"nprobe": i} for i in NPROBES],
         "IVF_SQ8": [{"nprobe": i} for i in NPROBES],
         "IVF_PQ": [{"nprobe": i} for i in NPROBES],
-        "SCANN": [{
-            "nprobe": i,
-            "reorder_k": j,
-        } for i, j in itertools.product(NPROBES, REORDER_KS)],
+        "SCANN": [
+            {
+                "nprobe": i,
+                "reorder_k": j,
+            }
+            for i, j in itertools.product(NPROBES, REORDER_KS)
+        ],
         "HNSW": [{"ef": i} for i in BEAM_SIZES],
         "DISKANN": [{"search_list": i} for i in BEAM_SIZES],
     }
@@ -178,7 +179,9 @@ for dataset_name in DATASETS:
         utility.index_building_progress("points")
 
         dataset_experiment_filter_widths = (
-            [""] if dataset_name == "adversarial-100-angular" else EXPERIMENT_FILTER_WIDTHS
+            [""]
+            if dataset_name == "adversarial-100-angular"
+            else EXPERIMENT_FILTER_WIDTHS
         )
         for filter_width in dataset_experiment_filter_widths:
             filter_width = "_" if filter_width == "" else f"_{filter_width}_"
@@ -244,6 +247,9 @@ for dataset_name in DATASETS:
                     search_results[ith_point] = result_i
 
                     return times[ith_point]
+
+                for i in range(10):
+                    search_point(i)  # warm up
 
                 start_time = time.time()
                 # Create a Pool of worker processes
