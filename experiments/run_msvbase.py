@@ -154,6 +154,7 @@ for dataset_name in DATASETS:
 
         start_time = time.time()
         search_results = []
+        # TODO: change to multithreading
         for query_id in range(len(queries)):
             filter_start = query_filter_ranges[query_id][0]
             filter_end = query_filter_ranges[query_id][1]
