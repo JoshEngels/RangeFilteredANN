@@ -11,4 +11,5 @@ compile_commands.json
 window_ann.egg-info
 experiments/index_cache
 experiments/results
+experiments/tmp.py
 experiments/*results*

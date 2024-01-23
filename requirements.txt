@@ -1,0 +1,3 @@
+numpy
+pymilvus==2.3.5
+tqdm
