@@ -42,6 +42,8 @@ NPROBES = [1, 2, 4, 8, 16, 32, 64, 128]
 REORDER_KS = [TOP_K * i for i in [1, 2, 4, 8, 16]]
 INDEX_TYPES = ["HNSW", "DISKANN", "IVF_PQ", "IVF_SQ8", "SCANN", "IVF_FLAT"]
 
+SIZE_OF_QUERY_POOL = 1000
+
 dataset_folder = "/data/parap/storage/jae/new_filtered_ann_datasets"
 
 
@@ -99,10 +101,12 @@ def get_query_params(index_type, n):
 connections.connect("default", host="localhost", port="19530")
 print("Connected to Milvus.")
 
+
 # remove all existing data
 collections = utility.list_collections()
 for collection in collections:
     utility.drop_collection(collection)
+
 
 for dataset_name in DATASETS:
     dim = int(dataset_name.split("-")[1])
@@ -204,78 +208,75 @@ for dataset_name in DATASETS:
             print("==query_filter_ranges.shape", query_filter_ranges.shape)
             print("==query_gt.shape", query_gt.shape)
 
-            for search_params in search_params_list:
-                print("=search_params: ", search_params)
-                formatted_search_params = "_".join(
-                    [f"{key}_{value}" for key, value in search_params.items()]
+            # Perform the search
+            manager = Manager()
+            search_results = manager.list([None] * len(query_filter_ranges))
+
+            def search_point(tup):
+                ith_point, search_params = tup
+                filter_start = query_filter_ranges[ith_point][0]
+                filter_end = query_filter_ranges[ith_point][1]
+                expr = "(priority > %s) && (priority < %s)" % (
+                    filter_start,
+                    filter_end,
                 )
-                manager = Manager()
-                search_results = manager.list([None] * len(query_filter_ranges))
-                times = manager.list([None] * len(query_filter_ranges))
 
-                # Perform the search
-                def search_point(ith_point):
-                    filter_start = query_filter_ranges[ith_point][0]
-                    filter_end = query_filter_ranges[ith_point][1]
-                    expr = "(priority > %s) && (priority < %s)" % (
-                        filter_start,
-                        filter_end,
+                result = points.search(
+                    [queries[ith_point]],
+                    "embeddings",
+                    search_params,
+                    limit=TOP_K,
+                    expr=expr,
+                )
+
+                assert len(result) == 1
+                hits = result[0]
+                result_i = []
+                distance = {}
+                for hit in hits:
+                    result_i.append(
+                        hit.id
+                    )  # , priority field: {hit.entity.get('priority')}
+                    distance[hit.id] = hit.distance
+                # sort results by distance
+                result_i.sort(key=lambda k: distance[k])
+                search_results[ith_point] = result_i
+
+            with Pool(SIZE_OF_QUERY_POOL) as query_pool:
+                for search_params in search_params_list:
+                    print("=search_params: ", search_params)
+                    formatted_search_params = "_".join(
+                        [f"{key}_{value}" for key, value in search_params.items()]
                     )
 
-                    start_time = time.time()
-                    result = points.search(
-                        [queries[ith_point]],
-                        "embeddings",
-                        search_params,
-                        limit=TOP_K,
-                        expr=expr,
-                    )
-                    end_time = time.time()
-                    times[ith_point] = end_time - start_time
-
-                    assert len(result) == 1
-                    hits = result[0]
-                    result_i = []
-                    distance = {}
-                    for hit in hits:
-                        result_i.append(
-                            hit.id
-                        )  # , priority field: {hit.entity.get('priority')}
-                        distance[hit.id] = hit.distance
-                    # sort results by distance
-                    result_i.sort(key=lambda k: distance[k])
-                    search_results[ith_point] = result_i
-
-                    return times[ith_point]
-
-                for i in range(10):
-                    search_point(i)  # warm up
-
-                start_time = time.time()
-                # Create a Pool of worker processes
-                with Pool(1000) as pool:
                     # Use tqdm to track progress
-                    for time_taken in tqdm(
-                        pool.imap_unordered(
-                            search_point, range(len(query_filter_ranges))
+                    start_time = (
+                        time.time()
+                    )  # Don't count the pool start time in the query time
+                    for _ in tqdm(
+                        query_pool.imap_unordered(
+                            search_point,
+                            zip(
+                                range(len(query_filter_ranges)),
+                                [search_params] * len(query_filter_ranges),
+                            ),
                         )
                     ):
-                        # times.append(time_taken)
                         pass
-                end_time = time.time()
+                    end_time = time.time()
 
-                total_time = end_time - start_time
-                average_recall = compute_recall(query_gt, search_results, TOP_K)
-                print("=average recall = {:.4f}".format(average_recall))
-                print("=search latency = {:.4f}s".format(total_time))
+                    total_time = end_time - start_time
+                    average_recall = compute_recall(query_gt, search_results, TOP_K)
+                    print("=average recall = {:.4f}".format(average_recall))
+                    print("=search latency = {:.4f}s".format(total_time))
 
-                run_results.append(
-                    (
-                        f"milvus_{index}_{formatted_index_params}_{formatted_search_params}",
-                        average_recall,
-                        total_time,
+                    run_results.append(
+                        (
+                            f"milvus_{index}_{formatted_index_params}_{formatted_search_params}",
+                            average_recall,
+                            total_time,
+                        )
                     )
-                )
 
             with open(output_file, "a") as f:
                 for name, recall, total_time in run_results:
