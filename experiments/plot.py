@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import glob
 
 
 def pareto_front(x, y):
@@ -53,7 +54,12 @@ filter_out_map = {
 def plot(dataset_name):
     global next_unused_cmap_index
 
-    df = pd.read_csv(f"results/{dataset_name}_results.csv")
+    # Read in all csvs containing dataset_name as a substring
+    paths = glob.glob(f"results/*{dataset_name}*.csv")
+    dfs = [pd.read_csv(path) for path in paths]
+    df = pd.concat(dfs)
+
+    df["filter_width"] = df["filter_width"].str.strip("_")
 
     filter_out = [f"2pow{i}" for i in filter_out_map[dataset_name]]
     df = df[~df["filter_width"].isin(filter_out)]

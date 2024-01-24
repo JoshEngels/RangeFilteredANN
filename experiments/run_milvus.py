@@ -40,7 +40,7 @@ EXPERIMENT_FILTER_WIDTHS = [f"2pow{i}" for i in range(-16, 1)]
 BEAM_SIZES = [10, 20, 40, 80, 160, 320]
 NPROBES = [1, 2, 4, 8, 16, 32, 64, 128]
 REORDER_KS = [TOP_K * i for i in [1, 2, 4, 8, 16]]
-INDEX_TYPES = ["HNSW", "DISKANN", "IVF_PQ", "IVF_SQ8", "SCANN", "IVF_FLAT"]
+INDEX_TYPES = ["HNSW", "IVF_PQ", "IVF_SQ8", "SCANN", "IVF_FLAT"]
 
 SIZE_OF_QUERY_POOL = 1000
 
