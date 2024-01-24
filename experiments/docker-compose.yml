@@ -63,6 +63,10 @@ services:
     depends_on:
       - "etcd"
       - "minio"
+    deploy:
+      resources:
+        limits:
+          cpus: 16
 
 networks:
   default:

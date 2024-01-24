@@ -4,6 +4,8 @@ Install: pymilvus (pip install), [Docker Engine](https://docs.docker.com/engine/
 
 Need milvus to be at least version 2.3.5. Need pymilvus version to be at least 2.3.5.
 
+If you are doing your experiments in "experiment_folder", you will need to replace all instance of /home/ubuntu with experiment_folder in experiments/docker-compose.yml.
+
 ```bash
 # start docker
 sudo systemctl start docker
