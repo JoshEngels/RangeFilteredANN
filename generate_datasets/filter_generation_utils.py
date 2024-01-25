@@ -1,5 +1,6 @@
 import numpy as np
 from tqdm import tqdm
+import os
 
 EXPERIMENT_FILTER_POWERS = range(-16, 1)
 TOP_K = 10
@@ -73,66 +74,116 @@ def generate_random_query_filter_ranges(
     return np.array(random_ranges)
 
 
-def generate_filters(
-    output_dir, is_angular, dataset_friendly_name, data, queries, filter_values
-):
-    all_filter_ranges = []
-    for filter_width_power in EXPERIMENT_FILTER_POWERS:
-        if (
-            output_dir
-            / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy"
-        ).exists():
-            all_filter_ranges.append(
-                np.load(
-                    output_dir
-                    / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy"
-                )
-            )
-            continue
+# def generate_filters(
+#     output_dir, is_angular, dataset_friendly_name, data, queries, filter_values
+# ):
+#     all_filter_ranges = []
+#     for filter_width_power in EXPERIMENT_FILTER_POWERS:
+#         if (
+#             output_dir
+#             / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy"
+#         ).exists():
+#             all_filter_ranges.append(
+#                 np.load(
+#                     output_dir
+#                     / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy"
+#                 )
+#             )
+#             continue
 
-        filter_width = 2**filter_width_power
-        filter_ranges = generate_random_query_filter_ranges(
-            filter_values=filter_values,
-            target_percentage=filter_width,
-            num_queries=len(queries),
-        )
-        all_filter_ranges.append(filter_ranges)
-        np.save(
-            output_dir
-            / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy",
-            filter_ranges,
-        )
+#         filter_width = 2**filter_width_power
+#         filter_ranges = generate_random_query_filter_ranges(
+#             filter_values=filter_values,
+#             target_percentage=filter_width,
+#             num_queries=len(queries),
+#         )
+#         all_filter_ranges.append(filter_ranges)
+#         np.save(
+#             output_dir
+#             / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy",
+#             filter_ranges,
+#         )
 
-    all_gts = [[] for _ in range(len(EXPERIMENT_FILTER_POWERS))]
-    for query_index, query in tqdm(enumerate(queries)):
+#     all_gts = [[] for _ in range(len(EXPERIMENT_FILTER_POWERS))]
+#     for query_index, query in enumerate(tqdm(queries)):
+#         if is_angular:
+#             dot_products = query @ data.T
+#             sorted_indices = np.argsort(dot_products)[::-1]
+#         else:
+#             distances = np.linalg.norm(query - data, axis=-1)
+#             sorted_indices = np.argsort(distances)
+
+#         for experiment_index in range(len(EXPERIMENT_FILTER_POWERS)):
+#             query_filter = all_filter_ranges[experiment_index][query_index]
+#             query_gt = []
+#             for data_index in sorted_indices:
+#                 if (
+#                     filter_values[data_index] >= query_filter[0]
+#                     and filter_values[data_index] <= query_filter[1]
+#                 ):
+#                     query_gt.append(data_index)
+#                 if len(query_gt) == TOP_K:
+#                     break
+
+#             assert len(query_gt) == TOP_K
+
+#             all_gts[experiment_index].append(query_gt)
+
+#     for i in range(len(EXPERIMENT_FILTER_POWERS)):
+#         all_gts[i] = np.array(all_gts[i])
+#         filter_width_power = EXPERIMENT_FILTER_POWERS[i]
+#         np.save(
+#             output_dir
+#             / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_gt.npy",
+#             all_gts[i],
+#         )
+
+def compute_ground_truths(data, queries, filter_ranges, filter_values, top_k, is_angular):
+    num_experiments = len(filter_ranges)
+    all_gts = [np.empty((len(queries), top_k), dtype=int) for _ in range(num_experiments)]
+
+    for query_index, query in enumerate(tqdm(queries)):
         if is_angular:
             dot_products = query @ data.T
             sorted_indices = np.argsort(dot_products)[::-1]
         else:
-            distances = np.linalg.norm(query - data, axis=-1)
+            distances = np.linalg.norm(data - query, axis=1)
             sorted_indices = np.argsort(distances)
 
-        for experiment_index in range(len(EXPERIMENT_FILTER_POWERS)):
-            query_filter = all_filter_ranges[experiment_index][query_index]
-            query_gt = []
-            for data_index in sorted_indices:
-                if (
-                    filter_values[data_index] >= query_filter[0]
-                    and filter_values[data_index] <= query_filter[1]
-                ):
-                    query_gt.append(data_index)
-                if len(query_gt) == TOP_K:
-                    break
+        for experiment_index in range(num_experiments):
+            query_filter = filter_ranges[experiment_index][query_index]
+            filtered_indices = sorted_indices[
+                (filter_values[sorted_indices] >= query_filter[0]) &
+                (filter_values[sorted_indices] <= query_filter[1])
+            ]
+            all_gts[experiment_index][query_index, :] = filtered_indices[:top_k]
 
-            assert len(query_gt) == TOP_K
+            assert len(all_gts[experiment_index][query_index]) == top_k
 
-            all_gts[experiment_index].append(query_gt)
+    return all_gts
 
-    for i in range(len(EXPERIMENT_FILTER_POWERS)):
-        all_gts[i] = np.array(all_gts[i])
+def generate_filters(output_dir, is_angular, dataset_friendly_name, data, queries, filter_values):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    all_filter_ranges = []
+    for filter_width_power in EXPERIMENT_FILTER_POWERS:
+        range_file = os.path.join(output_dir, f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy")
+        if os.path.exists(range_file):
+            all_filter_ranges.append(np.load(range_file))
+        else:
+            filter_width = 2**filter_width_power
+            filter_ranges = generate_random_query_filter_ranges(
+                filter_values=filter_values,
+                target_percentage=filter_width,
+                num_queries=len(queries),
+            )
+            all_filter_ranges.append(filter_ranges)
+            np.save(range_file, filter_ranges)
+
+    all_gts = compute_ground_truths(data, queries, all_filter_ranges, filter_values, TOP_K, is_angular)
+
+    for i, gts in enumerate(all_gts):
         filter_width_power = EXPERIMENT_FILTER_POWERS[i]
-        np.save(
-            output_dir
-            / f"{dataset_friendly_name}_queries_2pow{filter_width_power}_gt.npy",
-            all_gts[i],
-        )
+        gt_file = os.path.join(output_dir, f"{dataset_friendly_name}_queries_2pow{filter_width_power}_gt.npy")
+        np.save(gt_file, gts)
