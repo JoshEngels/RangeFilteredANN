@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import glob
+import re
 
 
 def pareto_front(x, y):
@@ -99,7 +100,13 @@ def plot(dataset_name):
             ax.plot(x, y, label=method, markersize=20, marker="x", color=color)
         else:
             ax.plot(x, y, label=method, color=color)
-        ax.set_title(f"Filter Width: {filter_width.replace('2pow', '2^')}")
+
+        title = f"Filter Width: {filter_width.replace('2pow', '2^')}"
+
+        # adding formatting so the exponent will render as an exponent
+        title = re.sub(r"2\^(-?\d+)", r"$2^{\1}$", title)
+
+        ax.set_title(title)
 
     fig.supxlabel("Recall")
     fig.supylabel("Queries Per Second")
