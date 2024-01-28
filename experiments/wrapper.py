@@ -258,6 +258,8 @@ def prefilter_index_constructor(metric, dtype):
             return PrefilterIndexFloatMips
         else:
             raise Exception("Invalid data type " + dtype)
+    else:
+        raise Exception("Invalid metric " + metric)
 
 
 def postfilter_vamana_constructor(metric, dtype):
@@ -279,6 +281,8 @@ def postfilter_vamana_constructor(metric, dtype):
             return PostfilterVamanaIndexFloatMips
         else:
             raise Exception("Invalid data type " + dtype)
+    else:
+        raise Exception("Invalid metric " + metric)
 
 
 def vamana_range_filter_tree_constructor(metric, dtype):
@@ -300,6 +304,8 @@ def vamana_range_filter_tree_constructor(metric, dtype):
             return VamanaRangeFilterTreeIndexFloatMips
         else:
             raise Exception("Invalid data type " + dtype)
+    else:
+        raise Exception("Invalid metric " + metric)
 
 
 def super_optimized_postfilter_tree_constructor(metric, dtype):
@@ -321,6 +327,8 @@ def super_optimized_postfilter_tree_constructor(metric, dtype):
             return SuperOptimizedPostfilterTreeIndexFloatMips
         else:
             raise Exception("Invalid data type " + dtype)
+    else:
+        raise Exception("Invalid metric " + metric)
 
 
 def build_query_params(
