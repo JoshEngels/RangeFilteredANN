@@ -109,7 +109,7 @@ for collection in collections:
 
 
 for dataset_name in DATASETS:
-    dim = int(dataset_name.split("-")[1])
+    dim = int(dataset_name.split("-")[-2])
 
     output_file = f"results/{dataset_name}_milvus_results.csv"
 
@@ -161,9 +161,19 @@ for dataset_name in DATASETS:
         filter_values.tolist(),
         data,
     ]
-    insert_result = points.insert(entities)
+
+    max_message_size = 963347592
+    max_batch_size = max_message_size // (dim * 4)
+    batch_size = max_batch_size // 2  # Divide by 2 to be safe
+    for start in tqdm(range(0, num_entities, batch_size)):
+        entities_batch = [
+            entities[0][start : start + batch_size],
+            entities[1][start : start + batch_size],
+            entities[2][start : start + batch_size],
+        ]
+        insert_result = points.insert(entities_batch)
+        print(f"insert_result: {start}\n", insert_result)
     points.flush()
-    print("insert_result:\n", insert_result)
 
     # use different indices
     for index in INDEX_TYPES:

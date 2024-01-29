@@ -1,12 +1,7 @@
 import time
 import os
-import sys
-import itertools
-from math import sqrt
-from multiprocessing import Pool, Manager
 
 import numpy as np
-from tqdm import tqdm
 import psycopg2
 
 THREADS = 16  # Adjust this to the desired number of parallel processes
@@ -20,11 +15,12 @@ DATA_SUBSET = None
 QUERY_SUBSET = None
 DATASETS = [
     "glove-100-angular",
-    "deep-image-96-angular",
     "sift-128-euclidean",
+    "adversarial-100-angular",
+    "deep-image-96-angular",
     "redcaps-512-angular",
 ]
-EXPERIMENT_FILTER_WIDTHS = [str(-i) for i in range(17)]
+EXPERIMENT_FILTER_WIDTHS = [f"2pow{i}" for i in range(-16, 1)]
 
 dataset_folder = "/data/parap/storage/jae/new_filtered_ann_datasets"
 
@@ -67,11 +63,16 @@ db_params = {
 
 # Establish the database connection
 conn = psycopg2.connect(**db_params)
+conn.autocommit = True
 print("Connected to MSVBASE.")
 # Create a cursor
 cursor = conn.cursor()
 
 # remove all existing data
+try:
+    cursor.execute("DROP EXTENSION vectordb")
+except:
+    pass
 drop_all_tables(cursor)
 cursor.execute("SET max_parallel_workers = %s;" % THREADS)
 cursor.execute("SET max_parallel_workers_per_gather = %s;" % THREADS)
@@ -131,19 +132,23 @@ for dataset_name in DATASETS:
     end_time = time.time()
     print("build index latency = {:.4f}s".format(end_time - start_time))
 
-    for filter_width in EXPERIMENT_FILTER_WIDTHS:
+    cursor.execute(f"CREATE INDEX {table_name}_filter_idx ON {table_name} (filter);")
+
+    dataset_experiment_filter_widths = (
+        [""] if dataset_name == "adversarial-100-angular" else EXPERIMENT_FILTER_WIDTHS
+    )
+    for filter_width in dataset_experiment_filter_widths:
+        filter_width = "_" if filter_width == "" else f"_{filter_width}_"
         print("==filter width: 2pow", filter_width)
         run_results = []
         query_filter_ranges = np.load(
             os.path.join(
                 dataset_folder,
-                f"{dataset_name}_queries_2pow{filter_width}_ranges.npy",
+                f"{dataset_name}_queries{filter_width}ranges.npy",
             )
         )
         query_gt = np.load(
-            os.path.join(
-                dataset_folder, f"{dataset_name}_queries_2pow{filter_width}_gt.npy"
-            )
+            os.path.join(dataset_folder, f"{dataset_name}_queries{filter_width}gt.npy")
         )
         if QUERY_SUBSET is not None:
             query_filter_ranges = query_filter_ranges[:QUERY_SUBSET]
@@ -175,10 +180,9 @@ for dataset_name in DATASETS:
         print("=search latency = {:.4f}s".format(total_time))
 
         with open(output_file, "a") as f:
-            for name, recall, total_time in run_results:
-                f.write(
-                    f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{THREADS}\n"
-                )
+            f.write(
+                f"{filter_width},msvbase,{average_recall},{total_time/len(queries)},{len(queries)/total_time},{THREADS}\n"
+            )
     cursor.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE;")
 
 

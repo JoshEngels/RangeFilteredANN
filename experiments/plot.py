@@ -67,6 +67,12 @@ def plot(dataset_name):
 
     df["method"] = df["method"].str.split("_").str[0]
 
+    # Filter to only recall greater than 0.9
+    # df = df[df["recall"] > 0.9]
+
+    # Filter out "smart-combined" method
+    df = df[df["method"] != "smart-combined"]
+
     grouped_data = df.groupby(["filter_width", "method"])
 
     num_plots = len(df["filter_width"].unique())
@@ -113,7 +119,7 @@ def plot(dataset_name):
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.98), ncol=5)
 
-    fig.suptitle(f"Pareto Fronts by Filter Width on {dataset_name}")
+    # fig.suptitle(f"Pareto Fronts by Filter Width on {dataset_name}")
 
     plt.tight_layout()
     plt.savefig(f"results/plots/{dataset_name}_results.pdf", bbox_inches="tight")

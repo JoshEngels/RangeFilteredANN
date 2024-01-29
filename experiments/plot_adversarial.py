@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from plot import pareto_front
-
+import glob
 
 cmap = plt.get_cmap("tab10")
 next_unused_cmap_index = 0
@@ -13,7 +13,9 @@ cmap_colors = {}
 def plot(dataset_name):
     global next_unused_cmap_index
 
-    df = pd.read_csv(f"results/{dataset_name}_results.csv")
+    paths = glob.glob(f"results/*{dataset_name}*.csv")
+    dfs = [pd.read_csv(path) for path in paths]
+    df = pd.concat(dfs)
 
     df["method"] = df["method"].str.split("_").str[0]
 

@@ -34,9 +34,6 @@ VAMANA_TREE_SPLIT_FACTORS = [2]
 SUPER_POSTFILTERING_SPLIT_FACTORS = [2]
 SUPER_POSTFILTERING_SHIFT_FACTORS = [0.5]
 
-# TODO: Change to 10000 for final experiments
-NUM_QUERIES = 1000
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--threads", type=int, default=None, help="Number of threads")
 parser.add_argument(
@@ -186,7 +183,8 @@ def compute_recall(gt_neighbors, results, top_k):
 def should_break(run_results):
     if len(run_results) == 0:
         return False
-    if run_results[-1][2] == 1.0:
+    # If recall is close to 1, we can stop
+    if run_results[-1][2] > 0.999:
         return True
     if len(run_results) == 1:
         return False
@@ -208,8 +206,6 @@ def should_break(run_results):
 def initialize_dataset(dataset_name):
     data = np.load(os.path.join(DATASET_FOLDER, f"{dataset_name}.npy"))
     queries = np.load(os.path.join(DATASET_FOLDER, f"{dataset_name}_queries.npy"))
-
-    queries = queries[:NUM_QUERIES]
 
     filter_values = np.load(
         os.path.join(DATASET_FOLDER, f"{dataset_name}_filter-values.npy")
@@ -511,11 +507,13 @@ def save_results(all_results, dataset_name):
         with open(output_file, "a") as f:
             f.write("filter_width,method,recall,average_time,qps,threads\n")
 
+    num_queries = 10000 if "redcaps" not in dataset_name else 800
+
     if not args.dont_write_to_results_file:
         with open(output_file, "a") as f:
             for filter_width, name, recall, total_time in all_results:
                 f.write(
-                    f"{filter_width},{name},{recall},{total_time/NUM_QUERIES},{NUM_QUERIES/total_time},{num_threads}\n"
+                    f"{filter_width},{name},{recall},{total_time/num_queries},{num_queries/total_time},{num_threads}\n"
                 )
 
 
