@@ -138,9 +138,14 @@ def generate_random_query_filter_ranges(
 #             all_gts[i],
 #         )
 
-def compute_ground_truths(data, queries, filter_ranges, filter_values, top_k, is_angular):
+
+def compute_ground_truths(
+    data, queries, filter_ranges, filter_values, top_k, is_angular
+):
     num_experiments = len(filter_ranges)
-    all_gts = [np.empty((len(queries), top_k), dtype=int) for _ in range(num_experiments)]
+    all_gts = [
+        np.empty((len(queries), top_k), dtype=int) for _ in range(num_experiments)
+    ]
 
     for query_index, query in enumerate(tqdm(queries)):
         if is_angular:
@@ -153,8 +158,8 @@ def compute_ground_truths(data, queries, filter_ranges, filter_values, top_k, is
         for experiment_index in range(num_experiments):
             query_filter = filter_ranges[experiment_index][query_index]
             filtered_indices = sorted_indices[
-                (filter_values[sorted_indices] >= query_filter[0]) &
-                (filter_values[sorted_indices] <= query_filter[1])
+                (filter_values[sorted_indices] >= query_filter[0])
+                & (filter_values[sorted_indices] <= query_filter[1])
             ]
             all_gts[experiment_index][query_index, :] = filtered_indices[:top_k]
 
@@ -162,13 +167,19 @@ def compute_ground_truths(data, queries, filter_ranges, filter_values, top_k, is
 
     return all_gts
 
-def generate_filters(output_dir, is_angular, dataset_friendly_name, data, queries, filter_values):
+
+def generate_filters(
+    output_dir, is_angular, dataset_friendly_name, data, queries, filter_values
+):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     all_filter_ranges = []
     for filter_width_power in EXPERIMENT_FILTER_POWERS:
-        range_file = os.path.join(output_dir, f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy")
+        range_file = os.path.join(
+            output_dir,
+            f"{dataset_friendly_name}_queries_2pow{filter_width_power}_ranges.npy",
+        )
         if os.path.exists(range_file):
             all_filter_ranges.append(np.load(range_file))
         else:
@@ -181,9 +192,14 @@ def generate_filters(output_dir, is_angular, dataset_friendly_name, data, querie
             all_filter_ranges.append(filter_ranges)
             np.save(range_file, filter_ranges)
 
-    all_gts = compute_ground_truths(data, queries, all_filter_ranges, filter_values, TOP_K, is_angular)
+    all_gts = compute_ground_truths(
+        data, queries, all_filter_ranges, filter_values, TOP_K, is_angular
+    )
 
     for i, gts in enumerate(all_gts):
         filter_width_power = EXPERIMENT_FILTER_POWERS[i]
-        gt_file = os.path.join(output_dir, f"{dataset_friendly_name}_queries_2pow{filter_width_power}_gt.npy")
+        gt_file = os.path.join(
+            output_dir,
+            f"{dataset_friendly_name}_queries_2pow{filter_width_power}_gt.npy",
+        )
         np.save(gt_file, gts)

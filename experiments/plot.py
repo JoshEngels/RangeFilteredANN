@@ -5,6 +5,10 @@ import os
 import glob
 import re
 
+MAX_ALLOWED_RECALL = 1 - 1e-5
+
+BASELINE_METHODS = ["postfiltering", "prefiltering", "milvus", "msvbase"]
+
 
 def pareto_front(x, y):
     sorted_indices = sorted(range(len(y)), key=lambda k: -y[k])
@@ -88,11 +92,19 @@ def plot(dataset_name):
     )
     axes = axes.reshape(-1)
 
+    df["recall"] = df["recall"].clip(upper=MAX_ALLOWED_RECALL)
+
     for (filter_width, method), group in grouped_data:
         if method not in cmap_colors:
             cmap_colors[method] = cmap(next_unused_cmap_index)
             next_unused_cmap_index += 1
         color = cmap_colors[method]
+
+        if method in BASELINE_METHODS:
+            method = "Baseline: " + method.capitalize()
+            marker = "o"
+        else:
+            marker = "x"
 
         ax = axes[df["filter_width"].unique().tolist().index(filter_width)]
         sorted_group = group.sort_values(by="recall", ascending=False)
@@ -102,24 +114,60 @@ def plot(dataset_name):
             1.0 / np.array(sorted_group["average_time"]),
         )
 
-        if len(x) == 1:
-            ax.plot(x, y, label=method, markersize=20, marker="x", color=color)
-        else:
-            ax.plot(x, y, label=method, color=color)
+        ax.plot(
+            x, y, label=method, color=color, marker=marker, markersize=15, linewidth=2
+        )
 
-        title = f"Filter Width: {filter_width.replace('2pow', '2^')}"
+    for i, ax in enumerate(axes):
+        filter_width = df["filter_width"].unique().tolist()[i]
+        max_recall = df[df["filter_width"] == filter_width]["recall"].max()
 
+        title = f"Filter Fraction: {filter_width.replace('2pow', '2^')}"
         # adding formatting so the exponent will render as an exponent
         title = re.sub(r"2\^(-?\d+)", r"$2^{\1}$", title)
 
+        alpha = 10
+
+        def fun(x):
+            return 1 - (1 - x) ** (1 / alpha)
+
+        def inv_fun(x):
+            return 1 - (1 - x) ** alpha
+
+        ax.set_xscale("function", functions=(fun, inv_fun))
+
+        from matplotlib import ticker
+
+        ax.xaxis.set_major_formatter(ticker.LogitFormatter())
+
+        ticks = [0, 1 / 2, 1 - 1e-1, 1 - 1e-2, 1 - 1e-3, 1 - 1e-4, MAX_ALLOWED_RECALL]
+        ticks = [t for t in ticks if t <= 1 - ((1 - max_recall) / 10)]
+
+        ax.set_xticks(ticks)
         ax.set_title(title)
+        ax.set_xlim(0, max(ticks))
+
+        ax.grid(visible=True, which="major", color="0.85", linestyle="-")
 
     fig.supxlabel("Recall")
-    fig.supylabel("Queries Per Second")
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.98), ncol=5)
+    supylabel = fig.supylabel("Queries Per Second")
+    supylabel.set_position((0.005, 0.5))
 
-    # fig.suptitle(f"Pareto Fronts by Filter Width on {dataset_name}")
+    handles, labels = axes[0].get_legend_handles_labels()
+    order = [
+        "Baseline: Prefiltering",
+        "Baseline: Postfiltering",
+        "Baseline: Milvus",
+        "Baseline: Msvbase",
+        "vamana-tree",
+        "three-split",
+        "optimized-postfiltering",
+        "super-postfiltering",
+    ]
+    handles = [handles[labels.index(method)] for method in order]
+    labels = [method for method in order]
+
+    fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.98), ncol=4)
 
     plt.tight_layout()
     plt.savefig(f"results/plots/{dataset_name}_results.pdf", bbox_inches="tight")
@@ -132,4 +180,4 @@ if __name__ == "__main__":
     plot("sift-128-euclidean")
     plot("glove-100-angular")
     plot("deep-image-96-angular")
-    plot("redcaps-512-angular")
+    # plot("redcaps-512-angular")
