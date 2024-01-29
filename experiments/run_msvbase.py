@@ -15,10 +15,10 @@ DATA_SUBSET = None
 QUERY_SUBSET = None
 DATASETS = [
     "glove-100-angular",
-    "deep-image-96-angular",
     "sift-128-euclidean",
-    "redcaps-512-angular",
     "adversarial-100-angular",
+    "deep-image-96-angular",
+    "redcaps-512-angular",
 ]
 EXPERIMENT_FILTER_WIDTHS = [f"2pow{i}" for i in range(-16, 1)]
 
@@ -63,11 +63,16 @@ db_params = {
 
 # Establish the database connection
 conn = psycopg2.connect(**db_params)
+conn.autocommit = True
 print("Connected to MSVBASE.")
 # Create a cursor
 cursor = conn.cursor()
 
 # remove all existing data
+try:
+    cursor.execute("DROP EXTENSION vectordb")
+except:
+    pass
 drop_all_tables(cursor)
 cursor.execute("SET max_parallel_workers = %s;" % THREADS)
 cursor.execute("SET max_parallel_workers_per_gather = %s;" % THREADS)
@@ -175,10 +180,9 @@ for dataset_name in DATASETS:
         print("=search latency = {:.4f}s".format(total_time))
 
         with open(output_file, "a") as f:
-            for name, recall, total_time in run_results:
-                f.write(
-                    f"{filter_width},{name},{recall},{total_time/len(queries)},{len(queries)/total_time},{THREADS}\n"
-                )
+            f.write(
+                f"{filter_width},msvbase,{average_recall},{total_time/len(queries)},{len(queries)/total_time},{THREADS}\n"
+            )
     cursor.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE;")
 
 
