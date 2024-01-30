@@ -2,12 +2,7 @@ import pandas as pd
 import glob
 
 
-def create_latex_table(
-    dataset_name, filter_width, recall_thresholds=(0.9, 0.99, 0.999)
-):
-    table_rows = []
-
-    # Read in all csvs containing dataset_name as a substring
+def speedup_of_our_best_method(dataset_name, filter_width, recall_threshold):
     paths = glob.glob(f"results/*{dataset_name}*.csv")
     dfs = [pd.read_csv(path) for path in paths]
     df = pd.concat(dfs)
@@ -17,28 +12,42 @@ def create_latex_table(
 
     df["method"] = df["method"].str.split("_").str[0]
 
-    for method, group in df.groupby("method"):
-        qpss = []
-        for recall_threshold in recall_thresholds:
-            filtered_df = group[group["recall"] > recall_threshold]
-            max_qps = filtered_df["qps"].max()
-            qpss.append(max_qps)
+    our_methods = [
+        "vamana-tree",
+        "three-split",
+        "super-postfiltering",
+        "optimized-postfiltering",
+    ]
+    their_methods = ["milvus", "vbase", "postfiltering", "prefiltering"]
 
-        table_rows.append([method] + qpss)
+    our_best_qps = df[
+        df["method"].isin(our_methods) & (df["recall"] > recall_threshold)
+    ]["qps"].max()
+    their_best_qps = df[
+        df["method"].isin(their_methods) & (df["recall"] > recall_threshold)
+    ]["qps"].max()
 
-    result_df = pd.DataFrame(
-        table_rows,
-        columns=["Method"]
-        + [f"Max QPS, Recall = {recall}" for recall in recall_thresholds],
-    )
+    return our_best_qps / their_best_qps
 
-    # bold_df = df_auc.apply(lambda x: ['\\textbf{{ {:.2f} }}'.format(val) if val == x.max() else '{:.2f}'.format(val) for val in x])
-    # memory, build time, varying b
 
-    latex_table = result_df.to_latex(index=False)
-
-    return latex_table
-
+# pows = [-14, -12, -10, -9, -8, -7 ,-6, -5, -4, -2, 0]
+pows = range(-11, 1)
 
 if __name__ == "__main__":
-    print(create_latex_table("sift-128-euclidean", "2pow-8"))
+    rows = []
+    for dataset in [
+        "deep-image-96-angular",
+        "sift-128-euclidean",
+        "glove-100-angular",
+        "redcaps-512-angular",
+    ]:
+        for recall_threshold in [0.99]:
+            pow_speedups = []
+            for pow in pows:
+                pow_speedups.append(
+                    speedup_of_our_best_method(dataset, f"2pow{pow}", recall_threshold)
+                )
+            rows.append([dataset] + pow_speedups)
+
+    df = pd.DataFrame(rows, columns=["Dataset"] + [f"$2^{{{pow}}}$" for pow in pows])
+    print(df.to_latex(index=False, float_format="{:0.3g}".format))

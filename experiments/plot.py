@@ -153,6 +153,14 @@ def plot(dataset_name):
     supylabel = fig.supylabel("Queries Per Second")
     supylabel.set_position((0.005, 0.5))
 
+    swaps = {
+        "Baseline: Msvbase": "Baseline: VBASE",
+        "three-split": "Three Split",
+        "vamana-tree": "DiskANN WST",
+        "super-postfiltering": "Super Postfiltering",
+        "optimized-postfiltering": "Optimized Postfiltering",
+    }
+
     handles, labels = axes[0].get_legend_handles_labels()
     order = [
         "Baseline: Prefiltering",
@@ -165,7 +173,7 @@ def plot(dataset_name):
         "super-postfiltering",
     ]
     handles = [handles[labels.index(method)] for method in order]
-    labels = [method for method in order]
+    labels = [swaps[label] if label in swaps else label for label in order]
 
     fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.98), ncol=4)
 
