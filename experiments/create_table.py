@@ -34,20 +34,29 @@ def speedup_of_our_best_method(dataset_name, filter_width, recall_threshold):
 pows = range(-11, 1)
 
 if __name__ == "__main__":
-    rows = []
-    for dataset in [
-        "deep-image-96-angular",
-        "sift-128-euclidean",
-        "glove-100-angular",
-        "redcaps-512-angular",
-    ]:
-        for recall_threshold in [0.99]:
+    for recall_threshold in [0.8, 0.9, 0.95, 0.99, 0.995]:
+        rows = []
+        for dataset in [
+            "deep-image-96-angular",
+            "sift-128-euclidean",
+            "glove-100-angular",
+            "redcaps-512-angular",
+        ]:
             pow_speedups = []
             for pow in pows:
                 pow_speedups.append(
                     speedup_of_our_best_method(dataset, f"2pow{pow}", recall_threshold)
                 )
-            rows.append([dataset] + pow_speedups)
+            dataset_name_map = {
+                "deep-image-96-angular": "\datasetname{Deep}",
+                "sift-128-euclidean": "\datasetname{SIFT}",
+                "glove-100-angular": "\datasetname{GloVe}",
+                "redcaps-512-angular": "\datasetname{Redcaps}",
+            }
+            rows.append([dataset_name_map[dataset]] + pow_speedups)
 
-    df = pd.DataFrame(rows, columns=["Dataset"] + [f"$2^{{{pow}}}$" for pow in pows])
-    print(df.to_latex(index=False, float_format="{:0.3g}".format))
+
+        df = pd.DataFrame(rows, columns=["Dataset"] + [f"$2^{{{pow}}}$" for pow in pows])
+    
+        print(recall_threshold)
+        print(df.to_latex(index=False, float_format="{:0.2f}".format))

@@ -21,6 +21,7 @@ def plot(dataset_name):
     df = pd.concat(dfs)
 
     df["method"] = df["method"].str.split("_").str[0]
+    df = df[df["method"] != "smart-combined"]
 
     grouped_data = df.groupby(["method"])
 
@@ -77,8 +78,8 @@ def plot(dataset_name):
 
     ax.grid(visible=True, which="major", color="0.85", linestyle="-")
 
-    plt.xlabel("Recall")
-    plt.ylabel("Queries Per Second")
+    plt.xlabel("Recall", fontsize=16)
+    plt.ylabel("Queries Per Second", fontsize=16)
 
     swaps = {
         "Baseline: Msvbase": "Baseline: VBASE",
@@ -104,7 +105,7 @@ def plot(dataset_name):
 
     plt.legend(handles, labels, loc="upper right")
 
-    plt.title(f"Pareto Fronts on Adversarial Data")
+    # plt.title(f"Pareto Fronts on Adversarial Data")
 
     plt.tight_layout()
     plt.savefig(f"results/plots/{dataset_name}_results.pdf", bbox_inches="tight")
