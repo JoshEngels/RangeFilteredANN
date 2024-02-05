@@ -1,8 +1,12 @@
 indices
 __pycache__
 *experiment*.txt
+
 *.png
 *.pdf
+!figures/*.pdf
+!figures/*.png
+
 *.so
 generate_datasets/temp
 build
