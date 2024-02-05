@@ -16,7 +16,7 @@ def initialize_dataset(dataset_name):
     filter_values = np.load(
         os.path.join(DATASET_FOLDER, f"{dataset_name}_filter-values.npy")
     )
-    metric = "mips" if "angular" in dataset_name else "Euclidean"
+    metric = "mips" if "angular" in dataset_name else "Euclidian"
     return data, filter_values, metric
 
 

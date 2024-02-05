@@ -5,8 +5,13 @@ import wrapper as wp
 import time
 import sys
 import multiprocessing
+# import tracemalloc
+import resource # only works on linux/mac
+import gc
+import shutil
 
 DATASET_FOLDER = "/data/parap/storage/jae/new_filtered_ann_datasets"
+# DATASET_FOLDER = "/ssd1/anndata/range_filters"
 DATASETS = [
     "sift-128-euclidean",
     "glove-100-angular",
@@ -300,6 +305,7 @@ def run_postfiltering_experiment(all_results, dataset_name, filter_width, alpha)
 
 def get_vamana_tree(data, filter_values, metric, alpha, split_factor):
     vamana_tree_constructor = wp.vamana_range_filter_tree_constructor(metric, "float")
+
     vamana_tree_build_start = time.time()
     build_params = wp.BuildParams(64, 500, alpha, f"index_cache/{dataset_name}/")
     vamana_tree = vamana_tree_constructor(
@@ -310,10 +316,15 @@ def get_vamana_tree(data, filter_values, metric, alpha, split_factor):
         build_params=build_params,
     )
     vamana_tree_build_end = time.time()
+
+    # current, peak = tracemalloc.get_traced_memory()
+    # tracemalloc.stop()
+
+    # current = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - start_memory
+
     vamana_tree_build_time = vamana_tree_build_end - vamana_tree_build_start
     print(f"Vamana tree build time: {vamana_tree_build_time:.3f}s", flush=True)
-
-    return vamana_tree
+    return vamana_tree, vamana_tree_build_time
 
 
 # Runs tree based methods if their booleans are true
@@ -328,7 +339,13 @@ def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_f
 
     data, queries, filter_values, metric = initialize_dataset(dataset_name)
 
-    vamana_tree = get_vamana_tree(data, filter_values, metric, alpha, split_factor)
+    gc.disable()
+    start_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+
+    vamana_tree, build_time = get_vamana_tree(data, filter_values, metric, alpha, split_factor)
+
+    memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - start_memory
+    gc.enable()
 
     query_filter_ranges, query_gt = get_queries_and_gt(dataset_name, filter_width)
 
@@ -351,6 +368,9 @@ def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_f
                     f"vamana-tree_{alpha:.3f}_{split_factor}_{beam_size}",
                     compute_recall(vamana_tree_results[0], query_gt, TOP_K),
                     time.time() - start,
+                    build_time,
+                    split_factor,
+                    memory
                 )
             )
             print(all_results[-1])
@@ -380,6 +400,9 @@ def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_f
                             optimized_postfilter_results[0], query_gt, TOP_K
                         ),
                         time.time() - start,
+                        build_time,
+                        split_factor,
+                        memory
                     )
                 )
                 print(all_results[-1])
@@ -411,6 +434,9 @@ def run_tree_experiments(all_results, dataset_name, filter_width, alpha, split_f
                         f"smart-combined_{alpha:.3f}_{split_factor}_{beam_size}_{final_beam_multiply}",
                         compute_recall(smart_combined_results[0], query_gt, TOP_K),
                         time.time() - start,
+                        build_time,
+                        split_factor,
+                        memory
                     )
                 )
                 print(all_results[-1])
@@ -455,6 +481,10 @@ def run_super_optimized_postfiltering_experiment(
 
     constructor = wp.super_optimized_postfilter_tree_constructor(metric, "float")
     build_start = time.time()
+
+    gc.disable()
+    start_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+
     build_params = wp.BuildParams(
         64, 500, alpha, f"index_cache/{dataset_name}-super_opt_postfiltering/"
     )
@@ -466,6 +496,10 @@ def run_super_optimized_postfiltering_experiment(
         shift_factor=shift_factor,
         build_params=build_params,
     )
+
+    memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - start_memory
+    gc.enable()
+
     build_time = time.time() - build_start
     print(f"Super optimized postfilter tree build time: {build_time:.3f}s", flush=True)
 
@@ -492,6 +526,9 @@ def run_super_optimized_postfiltering_experiment(
                     f"super-postfiltering_{split_factor}_{shift_factor}_{alpha}_{beam_size}_{final_beam_multiply}",
                     compute_recall(postfilter_results[0], query_gt, TOP_K),
                     time.time() - start,
+                    build_time,
+                    split_factor,
+                    memory
                 )
             )
             print(all_results[-1])
@@ -511,9 +548,23 @@ def save_results(all_results, dataset_name):
 
     if not args.dont_write_to_results_file:
         with open(output_file, "a") as f:
-            for filter_width, name, recall, total_time in all_results:
+            for tup in all_results:
+                if len(tup) == 4:
+                    filter_width, name, recall, total_time = tup
+                    build_time = ""
+                    branching_factor = ""
+                    memory = ""
+                elif len(tup) == 5:
+                    filter_width, name, recall, total_time, build_time = tup
+                    branching_factor = ""
+                    memory = ""
+                elif len(tup) == 6:
+                    filter_width, name, recall, total_time, build_time, branching_factor = tup
+                    memory = ""
+                else:
+                    filter_width, name, recall, total_time, build_time, branching_factor, memory = tup
                 f.write(
-                    f"{filter_width},{name},{recall},{total_time/num_queries},{num_queries/total_time},{num_threads}\n"
+                    f"{filter_width},{name},{recall},{total_time/NUM_QUERIES},{NUM_QUERIES/total_time},{num_threads},{build_time},{branching_factor},{memory}\n"
                 )
 
 
@@ -551,4 +602,5 @@ for dataset_name in DATASETS:
                             split_factor,
                             shift_factor,
                         )
+        
         save_results(all_results, dataset_name)
