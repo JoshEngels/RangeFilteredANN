@@ -69,11 +69,11 @@ def create_dataset(dataset_name, output_dir):
     )
 
 
-output_dir = Path("/data/parap/storage/jae/new_filtered_ann_datasets/")
-os.makedirs(output_dir, exist_ok=True)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("output_dir")
 parser.add_argument("dataset_name", choices=download_urls.keys())
 args = parser.parse_args()
 
-create_dataset(args.dataset_name, output_dir)
+os.makedirs(Path(args.output_dir), exist_ok=True)
+create_dataset(args.dataset_name, Path(args.output_dir))

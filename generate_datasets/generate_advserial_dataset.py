@@ -2,6 +2,7 @@
 import numpy as np
 from tqdm import tqdm
 from pathlib import Path
+import argparse
 
 
 def generate_gaussian_mixture(
@@ -27,7 +28,12 @@ DIM = 100
 INTRA_CLUSTER_VAR = 0.01
 INTER_CLUSTER_VAR = 1
 TOP_K = 100
-OUTPUT_DIR = Path("/data/parap/storage/jae/new_filtered_ann_datasets/")
+
+parser = argparse.ArgumentParser()
+parser.add_argument('output_dir', type=str, help='Output directory path')
+args = parser.parse_args()
+OUTPUT_DIR = args.output_dir
+
 
 data, filters, means = generate_gaussian_mixture(
     num_clusters=NUM_CLUSTERS,

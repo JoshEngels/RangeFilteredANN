@@ -8,7 +8,6 @@ import multiprocessing
 # import tracemalloc
 import resource # only works on linux/mac
 import gc
-import shutil
 
 DATASET_FOLDER = "/data/parap/storage/jae/new_filtered_ann_datasets"
 # DATASET_FOLDER = "/ssd1/anndata/range_filters"
@@ -564,7 +563,7 @@ def save_results(all_results, dataset_name):
                 else:
                     filter_width, name, recall, total_time, build_time, branching_factor, memory = tup
                 f.write(
-                    f"{filter_width},{name},{recall},{total_time/NUM_QUERIES},{NUM_QUERIES/total_time},{num_threads},{build_time},{branching_factor},{memory}\n"
+                    f"{filter_width},{name},{recall},{total_time/num_queries},{num_queries/total_time},{num_threads},{build_time},{branching_factor},{memory}\n"
                 )
 
 
