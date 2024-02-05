@@ -1,3 +1,4 @@
+from matplotlib.ticker import FormatStrFormatter
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -138,7 +139,10 @@ def plot(dataset_name):
 
         from matplotlib import ticker
 
-        ax.xaxis.set_major_formatter(ticker.LogitFormatter())
+        # ax.xaxis.set_major_formatter(ticker.LogitFormatter())
+        ax.xaxis.set_major_formatter(FormatStrFormatter("%g"))
+
+        ax.tick_params(axis="x", labelsize=15, rotation=50)
 
         ticks = [0, 1 / 2, 1 - 1e-1, 1 - 1e-2, 1 - 1e-3, 1 - 1e-4, MAX_ALLOWED_RECALL]
         ticks = [t for t in ticks if t <= 1 - ((1 - max_recall) / 10)]
@@ -188,4 +192,4 @@ if __name__ == "__main__":
     plot("sift-128-euclidean")
     plot("glove-100-angular")
     plot("deep-image-96-angular")
-    # plot("redcaps-512-angular")
+    plot("redcaps-512-angular")

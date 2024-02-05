@@ -10,7 +10,6 @@ import humanize
 
 DATASET_FOLDER = "/data/parap/storage/jae/new_filtered_ann_datasets"
 # DATASET_FOLDER = "/ssd1/anndata/range_filters"
-DATASETS = ["sift-128-euclidean", "glove-100-angular", "deep-image-96-angular", "redcaps-512-angular", "adversarial-100-angular"]
 
 
 def initialize_dataset(dataset_name):
@@ -42,6 +41,7 @@ def get_vamana_tree(data, filter_values, metric, alpha, split_factor):
 
     return vamana_tree, memory
 
+
 def get_postfiltering_index(data, filter_values, metric, alpha):
     build_params = wp.BuildParams(
         64, 500, alpha, f"index_cache/{dataset_name}/unsorted-"
@@ -53,17 +53,19 @@ def get_postfiltering_index(data, filter_values, metric, alpha):
     postfilter_index = postfilter_constructor(data, filter_values, build_params)
 
     end_memory = psutil.Process(os.getpid()).memory_info().rss
+    print(start_memory, end_memory)
 
     memory = humanize.naturalsize(end_memory - start_memory)
 
     return postfilter_index, memory
+
 
 def get_super(data, filter_values, metric, alpha, split_factor):
     constructor = wp.super_optimized_postfilter_tree_constructor(metric, "float")
     build_params = wp.BuildParams(
         64, 500, alpha, f"index_cache/{dataset_name}-super_opt_postfiltering/"
     )
-    
+
     start_memory = psutil.Process(os.getpid()).memory_info().rss
 
     super_optimized_postfilter_tree = constructor(
@@ -81,6 +83,7 @@ def get_super(data, filter_values, metric, alpha, split_factor):
 
     return super_optimized_postfilter_tree, memory
 
+
 def write_to_csv(method, dataset, memory_usage):
     results_dir = "results"
     os.makedirs(results_dir, exist_ok=True)
@@ -96,25 +99,26 @@ def write_to_csv(method, dataset, memory_usage):
         writer.writerow([method, dataset, memory_usage])
 
 
+import argparse
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--dataset", type=str, help="Name of the dataset")
+parser.add_argument("--index_type", type=str, help="Type of index")
+args = parser.parse_args()
 
-for dataset_name in DATASETS:
-    data, filter_values, metric = initialize_dataset(dataset_name)
+dataset_name = args.dataset
+index_type = args.index_type
 
-    _, memory_usage = get_postfiltering_index(
-        data, filter_values, metric, 1
-    )
+data, filter_values, metric = initialize_dataset(dataset_name)
 
+if index_type == "postfiltering":
+    _, memory_usage = get_postfiltering_index(data, filter_values, metric, 1)
     write_to_csv("postfiltering", dataset_name, memory_usage)
-
-    _, memory_usage = get_vamana_tree(
-        data, filter_values, metric, 1, 2
-    )
-
+elif index_type == "vamana-tree":
+    _, memory_usage = get_vamana_tree(data, filter_values, metric, 1, 2)
     write_to_csv("vamana-tree", dataset_name, memory_usage)
-
-    _, memory_usage = get_super(
-        data, filter_values, metric, 1, 2
-    )
-
+elif index_type == "super-postfiltering":
+    _, memory_usage = get_super(data, filter_values, metric, 1, 2)
     write_to_csv("super postfiltering", dataset_name, memory_usage)
+else:
+    print("Invalid index type")

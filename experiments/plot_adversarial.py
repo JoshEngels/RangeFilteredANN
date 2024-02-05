@@ -1,3 +1,4 @@
+from matplotlib.ticker import FormatStrFormatter
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -75,6 +76,10 @@ def plot(dataset_name):
 
     ax.set_xticks(ticks)
     ax.set_xlim(-0.3, max(ticks))
+
+    ax.xaxis.set_major_formatter(FormatStrFormatter("%g"))
+
+    ax.tick_params(axis="x", labelsize=11, rotation=40)
 
     ax.grid(visible=True, which="major", color="0.85", linestyle="-")
 

@@ -1,8 +1,13 @@
 import time
 import os
+from tqdm import tqdm
 
 import numpy as np
 import psycopg2
+
+from psycopg2.extensions import register_adapter, AsIs
+
+register_adapter(np.int64, AsIs)
 
 THREADS = 16  # Adjust this to the desired number of parallel processes
 print("THREADS", THREADS)
@@ -112,14 +117,9 @@ for dataset_name in DATASETS:
     metric = "<*>" if "angular" in dataset_name else "<->"
 
     # data must be in list, not numpy array
-    data = data.tolist()
+    # data = data.tolist()
     # filter_values = filter_values.tolist()
     ids = list(range(len(data)))
-
-    values_to_insert = [
-        (id_value, filter_value, vector_value)
-        for id_value, filter_value, vector_value in zip(ids, filter_values, data)
-    ]
 
     print("Inserting points to database.")
     table_name = dataset_name.replace("-", "_")
@@ -128,7 +128,17 @@ for dataset_name in DATASETS:
         f"INSERT INTO {table_name}(id, filter, vector_1) VALUES (%s, %s, %s);"
     )
     start_time = time.time()
-    cursor.executemany(insert_query, values_to_insert)
+    batch_size = 1000
+    for i in tqdm(list(range(0, len(data), batch_size))):
+        data_subset = data[i : i + batch_size].tolist()
+        values_to_insert = [
+            (id_value, filter_value, vector_value)
+            for id_value, filter_value, vector_value in zip(
+                ids[i : i + batch_size], filter_values[i : i + batch_size], data_subset
+            )
+        ]
+        cursor.executemany(insert_query, values_to_insert)
+
     end_time = time.time()
     print("build index latency = {:.4f}s".format(end_time - start_time))
 

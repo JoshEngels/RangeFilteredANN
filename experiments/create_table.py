@@ -55,8 +55,9 @@ if __name__ == "__main__":
             }
             rows.append([dataset_name_map[dataset]] + pow_speedups)
 
+        df = pd.DataFrame(
+            rows, columns=["Dataset"] + [f"$2^{{{pow}}}$" for pow in pows]
+        )
 
-        df = pd.DataFrame(rows, columns=["Dataset"] + [f"$2^{{{pow}}}$" for pow in pows])
-    
         print(recall_threshold)
         print(df.to_latex(index=False, float_format="{:0.2f}".format))
