@@ -17,14 +17,32 @@ The figure below visualizes some of these ideas. The top left is a 2-WST. Each i
 
 For more detailed descriptions of these ideas, see our paper.
 
+
+Okay, here is the # Using Our Package section with the proposed changes integrated. Replace the existing section in your local README.md file with this block:
 # Using Our Package
 
 Our package can be installed by running
 ```
 pip3 install .
 ```
+Use code with caution.
+Markdown
+Note: Building this package requires compiling C++ extensions.
+On Linux (Debian/Ubuntu-based) systems, you will likely need to install the necessary build tools and development libraries first:
+```
+sudo apt-get update && sudo apt-get install build-essential cmake python3-dev libtbb-dev
+ ```
+On Windows, you will need a C++ compiler compatible with Python extensions, such as the Microsoft C++ Build Tools. You may also need to install CMake separately.
+On macOS, you will need Xcode Command Line Tools (xcode-select --install) and likely CMake (e.g., via Homebrew: brew install cmake).
+*(Optional but recommended for resolving build issues) You might also need to install pybind11 via pip if the build system has trouble finding it:
+```
+pip install pybind11>=2.10
+```
+# If installation still fails finding pybind11, you may need this workaround (Linux/macOS):
+# CMAKE_ARGS="-Dpybind11_DIR=$(python -c 'import pybind11; print(pybind11.get_cmake_dir())')" pip install . -v
+# (A similar environment variable might be needed for Windows)
 
-To see basic usage of our package, see the experiment script `experiments/run_our_method.py`. Note that if you wish to use our package in a different folder, you will need to copy the `experiments/wrapper.py` file; we plan to integrate this into the pip package soon so that this will not be necessary.
+To see basic usage of our package, see the experiment script experiments/run_our_method.py. Note that if you wish to use our package in a different folder, you will need to copy the experiments/wrapper.py file; we plan to integrate this into the pip package soon so that this will not be necessary.
 
 # Reproducing Experiments
 
